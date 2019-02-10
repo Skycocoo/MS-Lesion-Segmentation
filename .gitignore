@@ -1,4 +1,8 @@
 *.DS_Store
 
+*.pdf
+*.pptx
+*.xlsx
+
 data/
-document/
+U-Net-release/
