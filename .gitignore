@@ -5,4 +5,5 @@
 *.xlsx
 
 data/
-U-Net-release/
+sampleCode/
+.ipynb_checkpoints/
