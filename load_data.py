@@ -14,10 +14,14 @@ def fetch_data():
     return model, seg
 
 def show_sample(files):
+    # shape of the image: 261, 336, 336
+    # shape of actual image: 144, 512, 512
+
     def show_slices(slices):
         fig, axes = plt.subplots(1, len(slices), figsize=(10,10))
         for i, slice in enumerate(slices):
             axes[i].imshow(slice.T, cmap="gray", origin="lower")
+
     for f in files:
         img = nib.load(f)
         img_data = img.get_fdata()
