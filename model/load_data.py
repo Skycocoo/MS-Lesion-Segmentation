@@ -1,6 +1,7 @@
 import glob, os
 import nibabel as nib
 import matplotlib.pyplot as plt
+from collection import defaultdict
 
 # directory: ./data/*/*.nii.gz
 # there are different modalities that should be taken care of
@@ -10,20 +11,24 @@ class Data:
     def __init__(self):
         self.model = []
         self.seg = []
-        self.model_data = []
-        self.seg_data = []
+        self.model_data = defaultdict(list)
+        self.seg_data = defaultdict(list)
 
     def fetch_file(self):
         root, sub_dir, _ = next(os.walk(os.getcwd() + '/data/'))
         for sub in sub_dir:
             self.model.append(os.path.join(root, sub + '/FLAIR_preprocessed.nii.gz'))
             self.seg.append(os.path.join(root, sub + '/Consensus.nii.gz'))
+        print(self.model)
 
     def load_data(self):
         self.fetch_file()
-        for i in range(len(self.model_data)):
-            self.model_data.append(nib.load(self.model[i]).get_fdata())
-            self.seg_data.append(nib.load(self.seg[i]).get_fdata())
+        for i in range(len(self.model)):
+            # could load as pair of corresponding model-seg list?
+            image = nib.load(self.model[i])
+            segment = nib.load(self.seg[i])
+            self.model_data[image.shape].append(image.get_fdata())
+            self.seg_data[segment.shape].append(image.get_fdata())
 
     def show_sample(self, files):
         def show_slices(slices):
