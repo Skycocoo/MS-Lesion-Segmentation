@@ -1,29 +1,18 @@
 # reference: https://github.com/ellisdg/3DUnetCNN/
-
 import numpy as np
 from keras import backend as K
 from keras.engine import Input, Model
-from keras.layers import Conv3D, MaxPooling3D, UpSampling3D, Activation, BatchNormalization, PReLU, Deconvolution3D
+from keras.layers import Conv3D, MaxPooling3D, UpSampling3D, Activation, BatchNormalization, PReLU, Deconvolution3D, merge
 from keras.optimizers import Adam
 
-from unet3d.metrics import dice_coefficient_loss, get_label_dice_coefficient_function, dice_coefficient
+from dice import *
 
-K.set_image_data_format("channels_first")
-
-try:
-    from keras.engine import merge
-except ImportError:
-    from keras.layers.merge import concatenate
-
-
-def unet_model_3d(input_shape, pool_size=(2, 2, 2), n_labels=1, initial_learning_rate=0.00001, deconvolution=False,
-                  depth=4, n_base_filters=32, include_label_wise_dice_coefficients=False, metrics=dice_coefficient,
+def unet_model_3d(input_shape, pool_size=(2, 2, 2), initial_learning_rate=0.00001,
+                  deconvolution=False, depth=4, n_base_filters=32, metrics=dice_coefficient,
                   batch_normalization=False, activation_name="sigmoid"):
     """
     Builds the 3D UNet Keras model.f
     :param metrics: List metrics to be calculated during model training (default is dice coefficient).
-    :param include_label_wise_dice_coefficients: If True and n_labels is greater than 1, model will report the dice
-    coefficient for each label as metric.
     :param n_base_filters: The number of filters that the first layer in the convolution network will have. Following
     layers will contain a multiple of this number. Lowering this number will likely reduce the amount of memory required
     to train the model.
@@ -40,7 +29,7 @@ def unet_model_3d(input_shape, pool_size=(2, 2, 2), n_labels=1, initial_learning
     """
     inputs = Input(input_shape)
     current_layer = inputs
-    levels = list()
+    levels = []
 
     # add levels with max pooling
     for layer_depth in range(depth):
@@ -66,29 +55,21 @@ def unet_model_3d(input_shape, pool_size=(2, 2, 2), n_labels=1, initial_learning
                                                  input_layer=current_layer,
                                                  batch_normalization=batch_normalization)
 
-    final_convolution = Conv3D(n_labels, (1, 1, 1))(current_layer)
+    # number of labels: 1
+    final_convolution = Conv3D(1, (1, 1, 1))(current_layer)
     act = Activation(activation_name)(final_convolution)
     model = Model(inputs=inputs, outputs=act)
 
     if not isinstance(metrics, list):
         metrics = [metrics]
 
-    if include_label_wise_dice_coefficients and n_labels > 1:
-        label_wise_dice_metrics = [get_label_dice_coefficient_function(index) for index in range(n_labels)]
-        if metrics:
-            metrics = metrics + label_wise_dice_metrics
-        else:
-            metrics = label_wise_dice_metrics
-
     model.compile(optimizer=Adam(lr=initial_learning_rate), loss=dice_coefficient_loss, metrics=metrics)
     return model
 
 
-def create_convolution_block(input_layer, n_filters, batch_normalization=False, kernel=(3, 3, 3), activation=None,
-                             padding='same', strides=(1, 1, 1), instance_normalization=False):
+def create_convolution_block(input_layer, n_filters, batch_normalization=False, kernel=(3, 3, 3),
+                             activation=None, padding='same', strides=(1, 1, 1), instance_normalization=False):
     """
-
-    :param strides:
     :param input_layer:
     :param n_filters:
     :param batch_normalization:
@@ -127,10 +108,8 @@ def compute_level_output_shape(n_filters, depth, pool_size, image_shape):
     return tuple([None, n_filters] + output_image_shape)
 
 
-def get_up_convolution(n_filters, pool_size, kernel_size=(2, 2, 2), strides=(2, 2, 2),
-                       deconvolution=False):
+def get_up_convolution(n_filters, pool_size, kernel_size=(2, 2, 2), strides=(2, 2, 2), deconvolution=False):
     if deconvolution:
-        return Deconvolution3D(filters=n_filters, kernel_size=kernel_size,
-                               strides=strides)
+        return Deconvolution3D(filters=n_filters, kernel_size=kernel_size, strides=strides)
     else:
         return UpSampling3D(size=pool_size)
