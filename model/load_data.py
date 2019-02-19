@@ -1,7 +1,9 @@
-import glob, os
+import glob, os, random
 import nibabel as nib
 import matplotlib.pyplot as plt
 from collections import defaultdict
+from datetime import datetime
+
 
 # directory: ./data/*/*.nii.gz
 # there are different modalities that should be taken care of
@@ -12,6 +14,7 @@ class Data:
         self.model = []
         self.seg = []
         self.data = defaultdict(list)
+        random.seed(datetime.now())
 
     def fetch_file(self):
         root, sub_dir, _ = next(os.walk(os.getcwd() + '/data/'))
@@ -43,7 +46,9 @@ class Data:
                     sample[1][:, 230, :],
                     sample[1][:, :, 230]])
 
-    def generator(self):
+    # need to zeropad image: shape divisible by pool ^ depth
+    # batch_size: 2 or 4
+    def generator(self, batch_size=2, div=16):
         # need shuffle, validation?
         for i in self.data:
             input = []
