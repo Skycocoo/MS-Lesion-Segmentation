@@ -1,6 +1,7 @@
 import glob, os, random
 import nibabel as nib
 import matplotlib.pyplot as plt
+import numpy as np
 from collections import defaultdict
 from datetime import datetime
 
@@ -53,7 +54,7 @@ class Data:
         pad_size = [0, 0, 0]
         pad = False
         for i in range(len(image.shape)):
-            divident = exp(pool_size[i], depth)
+            divident = pool_size[i] ** depth
             remain = image.shape[i] % divident
             if remain != 0:
                 pad = True
@@ -75,14 +76,14 @@ class Data:
         for i in self.data:
             self.valid_index[i] = random.sample(range(self.kfold), self.kfold)
 
-        # preprocess training and validation data
-        for i in self.data:
-            for j in range(len(self.data[i])):
-                self.zero_pad(self.data[i][j][0], pool_size, depth)
-                self.zero_pad(self.data[i][j][1], pool_size, depth)
-                # print(d.data[i][j][0].shape, d.data[i][j][1].shape)
+        # # preprocess training and validation data
+        # for i in self.data:
+        #     for j in range(len(self.data[i])):
+        #         self.zero_pad(self.data[i][j][0], pool_size, depth)
+        #         self.zero_pad(self.data[i][j][1], pool_size, depth)
+        #         # print(d.data[i][j][0].shape, d.data[i][j][1].shape)
 
-        fold = len(self.data[i]) * (self.kfold - 1) // self.kfold
+        fold = len(self.data) * len(self.data[random.choice(self.data.keys())]) * (self.kfold - 1) // self.kfold
         # return the number of batches for training and validation
         return fold * (self.kfold - 1) // batch_size, fold // batch_size
 
