@@ -76,22 +76,26 @@ class Data:
         for i in self.data:
             self.valid_index[i] = random.sample(range(self.kfold), self.kfold)
 
-        # # preprocess training and validation data
+        # # pad data to be divisible by pool_size ^ depth
         # for i in self.data:
         #     for j in range(len(self.data[i])):
         #         self.zero_pad(self.data[i][j][0], pool_size, depth)
         #         self.zero_pad(self.data[i][j][1], pool_size, depth)
         #         # print(d.data[i][j][0].shape, d.data[i][j][1].shape)
 
-        fold = len(self.data) * len(self.data[random.choice(self.data.keys())]) * (self.kfold - 1) // self.kfold
+        data_num = len(self.data) * len(next(iter(self.data.values())))
+        fold = data_num * (self.kfold - 1) / self.kfold
+
         # return the number of batches for training and validation
-        return fold * (self.kfold - 1) // batch_size, fold // batch_size
+        train_num = fold * (self.kfold - 1) // batch_size
+        valid_num = fold // batch_size
+        return train_num, valid_num
 
     # batch_size: 2 or 4
     def train_generator(self, fold_index, batch_size=2):
         for i in self.data:
             input = []
-            target = []
+            output = []
             for j in range(len(self.data[i])):
                 unit = len(self.data[i]) // self.kfold
                 # skip validation data

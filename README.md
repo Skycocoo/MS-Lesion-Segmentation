@@ -17,6 +17,7 @@
 - soft dice loss / hard dice loss
 - find more data to train
 
+
 ## Notes
 
 - [input with variable shape](https://github.com/keras-team/keras/issues/1920)
@@ -47,14 +48,5 @@ $ cp /share/apps/examples/jupyter/run-jupyter.sbatch ./
 $ vim run-jupyter.sbatch
 # #SBATCH: set up configuration of GPU for jobs
 # module: could load existing models so far: module load jupyter-kernels/py3.5
-
-$ sbatch run-jupyter.sbatch
-# submit job; create [job-number].out file
-
-$ cat [job-number].out file
-# find out the commands to open connect the jupyter notebook with ssh
-
-$ squeue -u yl4217
-# check running jobs
 
 ```
