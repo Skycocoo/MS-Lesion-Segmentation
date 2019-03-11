@@ -14,6 +14,8 @@ class Data:
     def __init__(self):
         self.model = []
         self.seg = []
+        # self.data[image.shape][i][0]: image
+        # self.data[image.shape][i][1]: segment
         self.data = defaultdict(list)
         self.kfold = None
         self.valid_index = {}
@@ -68,6 +70,12 @@ class Data:
             # https://stackoverflow.com/questions/50008587/zero-padding-a-3d-numpy-array
             image = np.pad(image, (pad0, pad1, pad2), 'constant')
 
+    def data_num(self):
+        num = 0
+        for i in self.data:
+            num += len(self.data[i])
+        return num
+
     def preprocess(self, kfold=5, batch_size=2, pool_size=(2, 2, 2), depth=4):
         self.kfold = kfold
 
@@ -83,29 +91,33 @@ class Data:
         #         self.zero_pad(self.data[i][j][1], pool_size, depth)
         #         # print(d.data[i][j][0].shape, d.data[i][j][1].shape)
 
-        data_num = len(self.data) * len(next(iter(self.data.values())))
-        fold = data_num * (self.kfold - 1) / self.kfold
+        data = self.data_num()
+        train_num = data // self.kfold * (self.kfold - 1)
+        valid_num = data - train_num
 
-        # return the number of batches for training and validation
-        train_num = fold * (self.kfold - 1) // batch_size
-        valid_num = fold // batch_size
-        return train_num, valid_num
+        # fold = self.data_num() // self.kfold
+        # # return the number of batches for training and validation
+        # train_num = fold * (self.kfold - 1) // batch_size
+        # valid_num = fold - train_num
+
+        return train_num // batch_size, valid_num
 
     # batch_size: 2 or 4
     def train_generator(self, fold_index, batch_size=2):
         for i in self.data:
             input = []
             output = []
+            unit = len(self.data[i]) // self.kfold
             for j in range(len(self.data[i])):
-                unit = len(self.data[i]) // self.kfold
                 # skip validation data
                 if j >= self.valid_index[i][fold_index] * unit and j < self.valid_index[i][fold_index] * (unit+1):
                     continue
                 if len(input) < batch_size:
-                    input.append(self.data[i][j][0])
-                    output.append(self.data[i][j][1])
+                    input.append(np.expand_dims(self.data[i][j][0], axis=0))
+                    output.append(np.expand_dims(self.data[i][j][1], axis=0))
                 else:
-                    yield input, output
+                    print(np.array(input).shape, np.array(output).shape)
+                    yield np.array(input), np.array(output)
                     # reinitialize input and output
                     input = []
                     output = []
