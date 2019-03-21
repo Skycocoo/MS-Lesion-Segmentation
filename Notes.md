@@ -1,26 +1,35 @@
 ## HPC login
 
-``` shell
-$ ssh <net_id>@prince.hpc.nyu.edu # in nyu network
+[prince tutorials](https://devwikis.nyu.edu/display/NYUHPC/PrinceTutorials)
+
+```shell
+$ ssh [net_id]@prince.hpc.nyu.edu # in nyu network
 # or
-$ ssh <net_id>@gw.hpc.nyu.edu && ssh prince.hpc.nyu.edu
+$ ssh [net_id]@gw.hpc.nyu.edu && ssh prince.hpc.nyu.edu
+```
 
+## HPC submit job
 
-$ sbatch run-jupyter.sbatch # under ~/
+```shell
+$ sbatch jupyter.sbatch # under /scratch/[net_id]
 # submit job; create [job-number].out file
 
-$ cat [job-number].out file
+$ cat slurm-[job-number].out file
 # find out the commands to open connect the jupyter notebook with ssh
 
-$ squeue -u <net_id>
+$ squeue -u [net_id]
 # check running jobs
 ```
 
+
+
 ## Jupyter Notebook
 
+- Customize Jupyter themes: https://github.com/dunovank/jupyter-themes
+- Jupyter theme: ``` jt -t onedork -fs 95 -tfs 11 -nfs 115 -cellw 80% -T```
 - Restart kernel: ```ctrl + z```
 - Runn all cells: ```cmd + i```
-- Check GPU status: open new - Terminal - ```nvidia-smi```
+- Check GPU status: new - Terminal - ```nvidia-smi```
 
 
 ## Python virtual environment
@@ -28,10 +37,9 @@ $ squeue -u <net_id>
 Using created virtual environment:
 
 ```shell
-module load python3/intel/3.6.3 cudnn/9.0v7.0.5
-source ~/pyenv/py3.6.3/bin/activate
+module load python3/intel/3.6.3 cudnn/9.0v7.0.5 cuda/9.0.176
+source ~/ms/py3.6.3/bin/activate
 ```
-
 
 
 Using anaconda to install:
@@ -49,8 +57,8 @@ $ source activate ve
 Using python to install:
 
 ```shell
-$ mkdir pytorch-cpu
-$ cd pytorch-cpu/
+$ mkdir [nameofenv]
+$ cd [nameofenv]/
 $ module load python3/intel/3.6.3
 $ virtualenv --system-site-packages py3.6.3
 $ source py3.6.3/bin/activate
@@ -61,15 +69,8 @@ $ pip3 install -I jupyter
 # # then inside the SBATCH script:
 # module purge
 # module load python3/intel/3.6.3
-# source ~/pytorch-cpu/py3.6.3/bin/activate
+# source ~/[nameofenv]/py3.6.3/bin/activate
 ```
-
-
-
-
-
-
-
 
 
 

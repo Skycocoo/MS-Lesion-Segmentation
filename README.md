@@ -32,21 +32,3 @@ for e in range(nb_epoch):
     for X_train, Y_train in ImageNet(): # these are chunks of ~10k pictures
         model.fit(X_batch, Y_batch, batch_size=32, nb_epoch=1)
 ```
-
-
-## HPC setting
-
-syncing code: [atom sftp](https://atom.io/packages/atom-sftp-sync)
-
-[jupyter notebook on hpc](https://wikis.nyu.edu/display/NYUHPC/Running+Jupyter+on+Prince)
-
-[prince tutorials](https://devwikis.nyu.edu/display/NYUHPC/PrinceTutorials)
-
-```shell
-$ cd /scratch/<net_id>
-$ cp /share/apps/examples/jupyter/run-jupyter.sbatch ./
-$ vim run-jupyter.sbatch
-# #SBATCH: set up configuration of GPU for jobs
-# module: could load existing models so far: module load jupyter-kernels/py3.5
-
-```

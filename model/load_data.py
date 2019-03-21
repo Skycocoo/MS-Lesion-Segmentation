@@ -105,8 +105,8 @@ class Data:
     # batch_size: 2 or 4
     def train_generator(self, fold_index, batch_size=2):
         for i in self.data:
-            input = []
-            output = []
+            input = [] # input
+            output = [] # target
             unit = len(self.data[i]) // self.kfold
             for j in range(len(self.data[i])):
                 # skip validation data
