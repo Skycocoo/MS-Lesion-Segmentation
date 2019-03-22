@@ -8,7 +8,6 @@
 
 ---
 
-- load FLAIR as input and Consensus as training?
 - deal with different input shape
 - modify existing unet
 
