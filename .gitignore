@@ -4,6 +4,8 @@
 *.png
 *.pptx
 *.xlsx
+*.hdf5
+*.csv
 
 data/
 sampleCode/
