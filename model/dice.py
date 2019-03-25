@@ -6,6 +6,7 @@ def dice_coefficient(y_true, y_pred, smooth=1.):
     y_true_f = np.array(y_true).flatten()
     y_pred_f = np.array(y_pred).flatten()
     intersection = np.sum(y_true_f * y_pred_f)
+    print(intersection, np.sum(y_true_f), np.sum(y_pred_f))
     return (2.*intersection+smooth) / (np.sum(y_true_f)+np.sum(y_pred_f)+smooth)
 
 
