@@ -1,36 +1,3 @@
-## HPC login
-
-[prince tutorials](https://devwikis.nyu.edu/display/NYUHPC/PrinceTutorials)
-
-```shell
-$ ssh [net_id]@prince.hpc.nyu.edu # in nyu network
-# or
-$ ssh [net_id]@gw.hpc.nyu.edu && ssh prince.hpc.nyu.edu
-```
-
-## HPC submit job
-
-```shell
-$ sbatch jupyter.sbatch # under /scratch/[net_id]
-# submit job; create [job-number].out file
-
-$ cat slurm-[job-number].out file
-# find out the commands to open connect the jupyter notebook with ssh
-
-$ squeue -u [net_id]
-# check running jobs
-```
-
-
-
-## Jupyter Notebook
-
-- Customize Jupyter themes: https://github.com/dunovank/jupyter-themes
-- Jupyter theme: ``` jt -t onedork -fs 95 -tfs 11 -nfs 115 -cellw 80% -T```
-- Restart kernel: ```ctrl + z```
-- Runn all cells: ```cmd + i```
-- Check GPU status: new - Terminal - ```nvidia-smi```
-
 
 ## Python virtual environment
 
@@ -42,7 +9,63 @@ source ~/ms/py3.6.3/bin/activate
 ```
 
 
-Using anaconda to install:
+## Problems to be solved
+
+Use tensorflow-gpu 1.12.0 + cuda 9 + cudnn 7:
+
+- batch size 4: OOM error due to allocating tensors
+- batch size 1: failed to get convolution algorithm; load runtime cudnn library: 7.0.5, but source was compiled with: 7.1.4
+
+
+Use tensorflow-gpu 1.13.0 + cuda 10 + cudnn 7.4:
+
+```
+2019-03-21 19:51:54.604769: E tensorflow/stream_executor/cuda/cuda_driver.cc:981] failed to synchronize the stop event: CUDA_ERROR_ILLEGAL_ADDRESS: an illegal memory access was encountered
+2019-03-21 19:51:54.605342: E tensorflow/stream_executor/cuda/cuda_timer.cc:55] Internal: error destroying CUDA event in context 0x2b98146d3e30: CUDA_ERROR_ILLEGAL_ADDRESS: an illegal memory access was encountered
+2019-03-21 19:51:54.605384: E tensorflow/stream_executor/cuda/cuda_timer.cc:60] Internal: error destroying CUDA event in context 0x2b98146d3e30: CUDA_ERROR_ILLEGAL_ADDRESS: an illegal memory access was encountered
+2019-03-21 19:51:54.605457: F tensorflow/stream_executor/cuda/cuda_dnn.cc:194] Check failed: status == CUDNN_STATUS_SUCCESS (7 vs. 0)Failed to set cuDNN stream.
+[I 19:52:17.486 NotebookApp] KernelRestarter: restarting kernel (1/5), keep random ports
+```
+
+Illegal access: something wrong with the model to cause illegal access? (https://github.com/JuliaGPU/CUDAnative.jl/issues/160#issuecomment-364199100)
+
+
+
+
+## Jupyter Notebook
+
+- Customize Jupyter themes: https://github.com/dunovank/jupyter-themes
+- Jupyter theme: ``` jt -t onedork -fs 95 -tfs 11 -nfs 115 -cellw 80% -T```
+- Restart kernel: ```ctrl + z```
+- Runn all cells: ```cmd + i```
+- Check GPU status: new - Terminal - ```nvidia-smi```
+
+## HPC login
+
+[prince tutorials](https://devwikis.nyu.edu/display/NYUHPC/PrinceTutorials)
+
+```shell
+$ ssh [net_id]@prince.hpc.nyu.edu # in nyu network
+# or
+$ ssh [net_id]@gw.hpc.nyu.edu && ssh prince.hpc.nyu.edu
+```
+
+sbatch submit job & cancel job:
+
+```shell
+$ sbatch jupyter.sbatch # under /scratch/[net_id]
+# submit job; create [job-number].out file
+
+$ cat slurm-[job_number].out file
+# find out the commands to open connect the jupyter notebook with ssh
+
+$ squeue -u [net_id]
+# check running jobs
+
+$ scancel [job_number]
+```
+
+Using anaconda to install virtual environment:
 
 ```shell
 $ module load anaconda3/5.3.0 cuda/9.0.176 cudnn/9.0v7.0.5
@@ -54,7 +77,7 @@ $ source activate ve
 (ve) $ jupyter notebook
 ```
 
-Using python to install:
+Using python to install virtual environment:
 
 ```shell
 $ mkdir [nameofenv]
