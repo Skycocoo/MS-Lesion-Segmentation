@@ -84,6 +84,7 @@ class Data:
         # K-fold LOOCV: leave one out cross validation
         for i in self.data:
             self.valid_index[i] = random.sample(range(self.kfold), self.kfold)
+#             print(i, self.valid_index[i])
 
         # # pad data to be divisible by pool_size ^ depth
         # for i in self.data:
@@ -91,10 +92,18 @@ class Data:
         #         self.zero_pad(self.data[i][j][0], pool_size, depth)
         #         self.zero_pad(self.data[i][j][1], pool_size, depth)
         #         # print(d.data[i][j][0].shape, d.data[i][j][1].shape)
+        
+        # # resize the image to be shape (32, 32, 32) to test the model
+        for i in self.data:
+            for j in range(len(self.data[i])):
+                for k in range(2):
+                    shape = self.data[i][j][k].shape
+                    self.data[i][j][k] = np.expand_dims(ndimage.zoom(self.data[i][j][k], 
+                                                                     (32/shape[0], 32/shape[1], 32/shape[2])), axis=0)
 
-        data = self.data_num()
-        train_num = data // self.kfold * (self.kfold - 1)
-        valid_num = data - train_num
+        num = self.data_num()
+        train_num = num // self.kfold * (self.kfold - 1)
+        valid_num = num - train_num
 
         # fold = self.data_num() // self.kfold
         # # return the number of batches for training and validation
@@ -105,69 +114,74 @@ class Data:
 
     # batch_size: 2 or 4
     def train_generator(self, fold_index, batch_size=2):
-        patch_size = 32
-        while True:
+#         while True:
+#             print("new epoch")
             for i in self.data:
+                print(i)
                 input = [] # input
                 output = [] # target
                 unit = len(self.data[i]) // self.kfold
                 for j in range(len(self.data[i])):
                     # skip validation data
-                    if j == self.valid_index[i][fold_index]: #* unit and j < self.valid_index[i][fold_index] * (unit+1):
+                    if j >= self.valid_index[i][fold_index] * unit and j < (self.valid_index[i][fold_index]+1) * unit:
+#                     if j == self.valid_index[i][fold_index]:
+                        print("skipping {0}".format(j))
                         continue
                     if len(input) < batch_size:
+                        input.append(self.data[i][j][0])
+                        output.append(self.data[i][j][1])
 #                         input.append(np.expand_dims(self.data[i][j][0], axis=0))
 #                         output.append(np.expand_dims(self.data[i][j][1], axis=0))
 
-                        shape = self.data[i][j][0].shape
-#                         x = shape[0] // 2
-#                         y = shape[1] // 2
-#                         z = shape[2] // 2
-#                         input.append(np.expand_dims(self.data[i][j][0][x : x + patch_size, y : y + patch_size, z : z + patch_size], axis=0))
-#                         output.append(np.expand_dims(self.data[i][j][1][x : x + patch_size, y : y + patch_size, z : z + patch_size], axis=0))
-                        input.append(np.expand_dims(ndimage.zoom(self.data[i][j][0], (32/shape[0], 32/shape[1], 32/shape[2])), axis=0))
-                        output.append(np.expand_dims(ndimage.zoom(self.data[i][j][1], (32/shape[0], 32/shape[1], 32/shape[2])), axis=0))
+#                         shape = self.data[i][j][0].shape
+# #                         x = shape[0] // 2
+# #                         y = shape[1] // 2
+# #                         z = shape[2] // 2
+# #                         input.append(np.expand_dims(self.data[i][j][0][x : x + patch_size, y : y + patch_size, z : z + patch_size], axis=0))
+# #                         output.append(np.expand_dims(self.data[i][j][1][x : x + patch_size, y : y + patch_size, z : z + patch_size], axis=0))
+#                         input.append(np.expand_dims(ndimage.zoom(self.data[i][j][0], (32/shape[0], 32/shape[1], 32/shape[2])), axis=0))
+#                         output.append(np.expand_dims(ndimage.zoom(self.data[i][j][1], (32/shape[0], 32/shape[1], 32/shape[2])), axis=0))
             
                     else:
                         # print(np.array(input).shape, np.array(output).shape)
                         yield np.array(input), np.array(output)
                         # reinitialize input and output
-                        input = []
-                        output = []
+                        input = [self.data[i][j][0]]
+                        output = [self.data[i][j][1]]
 #                         input.append(np.expand_dims(self.data[i][j][0], axis=0))
 #                         output.append(np.expand_dims(self.data[i][j][1], axis=0))
                                       
-                        shape = self.data[i][j][0].shape
-#                         x = shape[0] // 2
-#                         y = shape[1] // 2
-#                         z = shape[2] // 2
-#                         input.append(np.expand_dims(self.data[i][j][0][x : x + patch_size, y : y + patch_size, z : z + patch_size], axis=0))
-#                         output.append(np.expand_dims(self.data[i][j][1][x : x + patch_size, y : y + patch_size, z : z + patch_size], axis=0))
-                        input.append(np.expand_dims(ndimage.zoom(self.data[i][j][0], (32/shape[0], 32/shape[1], 32/shape[2])), axis=0))
-                        output.append(np.expand_dims(ndimage.zoom(self.data[i][j][1], (32/shape[0], 32/shape[1], 32/shape[2])), axis=0))
-                yield np.array(input), np.array(output)
+#                         shape = self.data[i][j][0].shape
+# #                         x = shape[0] // 2
+# #                         y = shape[1] // 2
+# #                         z = shape[2] // 2
+# #                         input.append(np.expand_dims(self.data[i][j][0][x : x + patch_size, y : y + patch_size, z : z + patch_size], axis=0))
+# #                         output.append(np.expand_dims(self.data[i][j][1][x : x + patch_size, y : y + patch_size, z : z + patch_size], axis=0))
+#                         input.append(np.expand_dims(ndimage.zoom(self.data[i][j][0], (32/shape[0], 32/shape[1], 32/shape[2])), axis=0))
+#                         output.append(np.expand_dims(ndimage.zoom(self.data[i][j][1], (32/shape[0], 32/shape[1], 32/shape[2])), axis=0))
+                if (len(input) == batch_size): 
+                    yield np.array(input), np.array(output)
             
                     
 
     # each scanner yield a simple validation sample
     def valid_generator(self, fold_index):
-        patch_size = 32
-        while True:
+#         while True:
             for i in self.valid_index:
-                input = []
-                output = []
-                valid = self.data[i][fold_index]
+                input = [self.data[i][fold_index][0]]
+                output = [self.data[i][fold_index][1]]
+#                 valid = self.data[i][fold_index]
 #                 input.append(np.expand_dims(valid[0], axis=0))
 #                 output.append(np.expand_dims(valid[1], axis=0))
 
-                shape = valid[0].shape
-#                 x = shape[0] // 2
-#                 y = shape[1] // 2
-#                 z = shape[2] // 2
-#                 input.append(np.expand_dims(valid[0][x : x + patch_size, y : y + patch_size, z : z + patch_size], axis=0))
-#                 output.append(np.expand_dims(valid[1][x : x + patch_size, y : y + patch_size, z : z + patch_size], axis=0))
-                input.append(np.expand_dims(ndimage.zoom(valid[0], (32/shape[0], 32/shape[1], 32/shape[2])), axis=0))
-                output.append(np.expand_dims(ndimage.zoom(valid[1], (32/shape[0], 32/shape[1], 32/shape[2])), axis=0))
+#                 shape = valid[0].shape
+# #                 x = shape[0] // 2
+# #                 y = shape[1] // 2
+# #                 z = shape[2] // 2
+# #                 input.append(np.expand_dims(valid[0][x : x + patch_size, y : y + patch_size, z : z + patch_size], axis=0))
+# #                 output.append(np.expand_dims(valid[1][x : x + patch_size, y : y + patch_size, z : z + patch_size], axis=0))
+#                 input.append(np.expand_dims(ndimage.zoom(valid[0], (32/shape[0], 32/shape[1], 32/shape[2])), axis=0))
+#                 output.append(np.expand_dims(ndimage.zoom(valid[1], (32/shape[0], 32/shape[1], 32/shape[2])), axis=0))
                 yield np.array(input), np.array(output)
             
 #             unit = len(self.data[i]) // self.kfold
