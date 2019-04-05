@@ -22,7 +22,6 @@ class Data:
         # self.data[image.shape][i][1]: segment
         self.data = defaultdict(list)
         self.kfold = None
-        self.patch_index = defaultdict(list)
         self.valid_index = {}
         random.seed(datetime.now())
 
@@ -42,7 +41,7 @@ class Data:
             self.data[image.shape].append([image.get_fdata(),
                                            segment.get_fdata()])
 
-    def show_image(self, images):
+    def show_image(images):
         # show image with [None, None, : ,: ,:] dimension
         def show_frame(id):
             length = len(images)
@@ -51,14 +50,17 @@ class Data:
                 plt.imshow(images[i][0, 0, id, :, :], cmap='gray')
         interact(show_frame, id=widgets.IntSlider(min=0, max=images[0].shape[2]-1, step=1, value=images[0].shape[2]/2))
 
-    def zero_pad(self, image, div=(32, 32, 32)):
+    # need to zeropad image: shape divisible by pool ^ depth
+    def zero_pad(self, image, pool_size=(2, 2, 2), depth=4):
         pad_size = [0, 0, 0]
         pad = False
         for i in range(len(image.shape)):
-            remain = image.shape[i] % div[i]
+            divident = pool_size[i] ** depth
+            remain = image.shape[i] % divident
             if remain != 0:
                 pad = True
-                pad_size[i] = (image.shape[i] // div[i] + 1) * div - image.shape[i]
+                div = image.shape[i] // divident
+                pad_size[i] = (div+1) * divident - image.shape[i]
         if pad:
             # deal with odd number of padding
             pad0 = (pad_size[0]//2, pad_size[0] - pad_size[0]//2)
@@ -90,18 +92,13 @@ class Data:
 
         return train_num // batch_size, valid_num
     
-    def prepatch(self, patch_size=(32, 32, 32), gap=10):
-        for i in self.data:
-            
-    
-    
-    def preprocess(self, batch_size=2, patch_size=(32, 32, 32)):
-        # pad data to be divisible by patch size
-        for i in self.data:
-            for j in range(len(self.data[i])):
-                self.zero_pad(self.data[i][j][0], patch_size)
-                self.zero_pad(self.data[i][j][1], patch_size)
-                # print(d.data[i][j][0].shape, d.data[i][j][1].shape)
+    def preprocess(self, batch_size=2, pool_size=(2, 2, 2), depth=4):
+        # # pad data to be divisible by pool_size ^ depth
+        # for i in self.data:
+        #     for j in range(len(self.data[i])):
+        #         self.zero_pad(self.data[i][j][0], pool_size, depth)
+        #         self.zero_pad(self.data[i][j][1], pool_size, depth)
+        #         # print(d.data[i][j][0].shape, d.data[i][j][1].shape)
         
         # # resize the image to be shape (32, 32, 32) to test the model
         for i in self.data:
