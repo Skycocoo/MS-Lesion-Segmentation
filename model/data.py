@@ -1,7 +1,9 @@
 import glob, os, random
 import nibabel as nib
-import matplotlib.pyplot as plt
 import numpy as np
+import h5py
+
+import matplotlib.pyplot as plt
 from collections import defaultdict
 from datetime import datetime
 
@@ -26,21 +28,65 @@ class Data:
         self.valid_index = {}
         random.seed(datetime.now())
 
-    def fetch_file(self):
-        root, sub_dir, _ = next(os.walk(os.getcwd() + '/data/'))
-        for sub in sub_dir:
-            self.model.append(os.path.join(root, sub + '/FLAIR_preprocessed.nii.gz'))
-            self.seg.append(os.path.join(root, sub + '/Consensus.nii.gz'))
-
-    def load_data(self):
+    def fetch_raw_data(self, raw):
+        def fetch_file(self):
+            root, sub_dir, _ = next(os.walk(os.getcwd() + '/data/'))
+            for sub in sub_dir:
+                self.model.append(os.path.join(root, sub + '/FLAIR_preprocessed.nii.gz'))
+                self.seg.append(os.path.join(root, sub + '/Consensus.nii.gz'))
         self.fetch_file()
+        raw_data = defaultdict(list)
         for i in range(len(self.model)):
             image = nib.load(self.model[i])
             segment = nib.load(self.seg[i])
-            # self.data[image.shape][i][0]: image
-            # self.data[image.shape][i][1]: segment
-            self.data[image.shape].append([image.get_fdata(),
-                                           segment.get_fdata()])
+            raw_data[image.shape].append([image.get_fdata(), segment.get_fdata()])
+        with h5py.File(raw, 'w') as f:
+            for i in raw_data:
+                f.create_dataset(str(i), data=raw_data[i])
+        return raw_data
+    
+    def load_raw_data(self, raw="./model/h5df_data/raw_data.h5"):
+        raw_file = h5py.File(raw, 'r') # should not close it immediately
+        raw_data = defaultdict(list)
+        for i in raw_file.keys():
+            # to get the matrix: self.data[i][:]
+            # d.data[i][j][0], d.data[i][j][1]
+            raw_data = raw_file[i]
+        return raw_data
+    
+    def process_raw_data(self, raw_data, patch_size=(32, 32, 32), pad="./model/h5df_data/pad_data.h5"):
+        for i in raw_data:
+            for j in range(raw_data[i].shape[0]):
+                img = self.zero_pad(raw_data[i][j][0], patch_size)
+                tar = self.zero_pad(raw_data[i][j][1], patch_size)
+                self.data[img.shape].append([img, tar])
+        with h5py.File(pad, 'w') as f:
+            f.create_dataset("patch_size", data=patch_size)    
+            for i in self.data:
+                f.create_dataset(str(i), data=self.data[i])
+    
+    def pad_raw_data(self, patch_size, pad, raw):
+        raw_data = None
+        if os.path.isfile(raw):
+            raw_data = self.load_raw_data(raw)
+        else:
+            raw_data = self.fetch_raw_data(raw)
+        self.process_raw_data(raw_data, patch_size, pad)
+            
+    def load_data(self, patch_size=(32, 32, 32), 
+                  pad="./model/h5df_data/pad_data.h5", raw="./model/h5df_data/raw_data.h5"):
+        # self.data[image.shape][i][0]: image
+        # self.data[image.shape][i][1]: segment
+        
+        if os.path.isfile(pad):
+            pad_file = h5py.File(pad, 'r')
+            if pad_file["patch_size"] == patch_size:
+                for i in pad_file.keys():
+                    self.data[i] = pad_file[i]
+            else:
+                self.pad_raw_data(patch_size, pad, raw)
+        else:
+            self.pad_raw_data(patch_size, pad, raw)
 
     def show_image(self, images):
         # show image with [None, None, : ,: ,:] dimension
@@ -49,7 +95,8 @@ class Data:
             for i in range(length):
                 plt.subplot(1, length, i+1)
                 plt.imshow(images[i][0, 0, id, :, :], cmap='gray')
-        interact(show_frame, id=widgets.IntSlider(min=0, max=images[0].shape[2]-1, step=1, value=images[0].shape[2]/2))
+        interact(show_frame, 
+                 id=widgets.IntSlider(min=0, max=images[0].shape[2]-1, step=1, value=images[0].shape[2]/2))
 
     def zero_pad(self, image, div=(32, 32, 32)):
         pad_size = [0, 0, 0]
@@ -58,14 +105,16 @@ class Data:
             remain = image.shape[i] % div[i]
             if remain != 0:
                 pad = True
-                pad_size[i] = (image.shape[i] // div[i] + 1) * div - image.shape[i]
+                pad_size[i] = (image.shape[i] // div[i] + 1) * div[i] - image.shape[i]
         if pad:
             # deal with odd number of padding
             pad0 = (pad_size[0]//2, pad_size[0] - pad_size[0]//2)
             pad1 = (pad_size[1]//2, pad_size[1] - pad_size[1]//2)
             pad2 = (pad_size[2]//2, pad_size[2] - pad_size[2]//2)
             # https://stackoverflow.com/questions/50008587/zero-padding-a-3d-numpy-array
-            image = np.pad(image, (pad0, pad1, pad2), 'constant')
+            return np.pad(image, (pad0, pad1, pad2), 'constant')
+        else:
+            return image
 
     def data_num(self):
         num = 0
@@ -90,27 +139,9 @@ class Data:
 
         return train_num // batch_size, valid_num
     
-    def prepatch(self, patch_size=(32, 32, 32), gap=10):
-        for i in self.data:
+#     def prepatch(self, patch_size=(32, 32, 32), gap=10):
+#         for i in self.data:
             
-    
-    
-    def preprocess(self, batch_size=2, patch_size=(32, 32, 32)):
-        # pad data to be divisible by patch size
-        for i in self.data:
-            for j in range(len(self.data[i])):
-                self.zero_pad(self.data[i][j][0], patch_size)
-                self.zero_pad(self.data[i][j][1], patch_size)
-                # print(d.data[i][j][0].shape, d.data[i][j][1].shape)
-        
-        # # resize the image to be shape (32, 32, 32) to test the model
-        for i in self.data:
-            for j in range(len(self.data[i])):
-                for k in range(2):
-                    shape = self.data[i][j][k].shape
-                    self.data[i][j][k] = np.expand_dims(ndimage.zoom(self.data[i][j][k], 
-                                                                     (32/shape[0], 32/shape[1], 32/shape[2])), axis=0)
-
     # batch_size: 2 or 4
     def train_generator(self, fold_index, batch_size=2):
 #         while True:
