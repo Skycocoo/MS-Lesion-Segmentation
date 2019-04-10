@@ -18,8 +18,6 @@ from scipy import ndimage, misc
 
 class Data:
     def __init__(self):
-        self.model = []
-        self.seg = []
         # self.data[image.shape][i][0]: image
         # self.data[image.shape][i][1]: segment
         self.data = defaultdict(list)
@@ -27,77 +25,8 @@ class Data:
         self.patch_index = defaultdict(list)
         self.valid_index = {}
         random.seed(datetime.now())
-
-    def fetch_raw_data(self, raw):
-        def fetch_file(self):
-            root, sub_dir, _ = next(os.walk(os.getcwd() + '/data/'))
-            for sub in sub_dir:
-                self.model.append(os.path.join(root, sub + '/FLAIR_preprocessed.nii.gz'))
-                self.seg.append(os.path.join(root, sub + '/Consensus.nii.gz'))
-        self.fetch_file()
-        raw_data = defaultdict(list)
-        for i in range(len(self.model)):
-            image = nib.load(self.model[i])
-            segment = nib.load(self.seg[i])
-            raw_data[image.shape].append([image.get_fdata(), segment.get_fdata()])
-        with h5py.File(raw, 'w') as f:
-            for i in raw_data:
-                f.create_dataset(str(i), data=raw_data[i])
-        return raw_data
-    
-    def load_raw_data(self, raw="./model/h5df_data/raw_data.h5"):
-        raw_file = h5py.File(raw, 'r') # should not close it immediately
-        raw_data = defaultdict(list)
-        for i in raw_file.keys():
-            # to get the matrix: self.data[i][:]
-            # d.data[i][j][0], d.data[i][j][1]
-            raw_data = raw_file[i]
-        return raw_data
-    
-    def process_raw_data(self, raw_data, patch_size=(32, 32, 32), pad="./model/h5df_data/pad_data.h5"):
-        for i in raw_data:
-            for j in range(raw_data[i].shape[0]):
-                img = self.zero_pad(raw_data[i][j][0], patch_size)
-                tar = self.zero_pad(raw_data[i][j][1], patch_size)
-                self.data[img.shape].append([img, tar])
-        with h5py.File(pad, 'w') as f:
-            f.create_dataset("patch_size", data=patch_size)    
-            for i in self.data:
-                f.create_dataset(str(i), data=self.data[i])
-    
-    def pad_raw_data(self, patch_size, pad, raw):
-        raw_data = None
-        if os.path.isfile(raw):
-            raw_data = self.load_raw_data(raw)
-        else:
-            raw_data = self.fetch_raw_data(raw)
-        self.process_raw_data(raw_data, patch_size, pad)
-            
-    def load_data(self, patch_size=(32, 32, 32), 
-                  pad="./model/h5df_data/pad_data.h5", raw="./model/h5df_data/raw_data.h5"):
-        # self.data[image.shape][i][0]: image
-        # self.data[image.shape][i][1]: segment
         
-        if os.path.isfile(pad):
-            pad_file = h5py.File(pad, 'r')
-            if pad_file["patch_size"] == patch_size:
-                for i in pad_file.keys():
-                    self.data[i] = pad_file[i]
-            else:
-                self.pad_raw_data(patch_size, pad, raw)
-        else:
-            self.pad_raw_data(patch_size, pad, raw)
-
-    def show_image(self, images):
-        # show image with [None, None, : ,: ,:] dimension
-        def show_frame(id):
-            length = len(images)
-            for i in range(length):
-                plt.subplot(1, length, i+1)
-                plt.imshow(images[i][0, 0, id, :, :], cmap='gray')
-        interact(show_frame, 
-                 id=widgets.IntSlider(min=0, max=images[0].shape[2]-1, step=1, value=images[0].shape[2]/2))
-
+          
     def zero_pad(self, image, div=(32, 32, 32)):
         pad_size = [0, 0, 0]
         pad = False
@@ -116,6 +45,79 @@ class Data:
         else:
             return image
 
+    def fetch_raw_data(self, raw):
+        def fetch_file():
+            model = []
+            seg = []
+            root, sub_dir, _ = next(os.walk(os.getcwd() + '/data/'))
+            for sub in sub_dir:
+                model.append(os.path.join(root, sub + '/FLAIR_preprocessed.nii.gz'))
+                seg.append(os.path.join(root, sub + '/Consensus.nii.gz'))
+            return model, seg
+        
+        model, seg = fetch_file()
+        raw_data = defaultdict(list)
+        for i in range(len(model)):
+            image = nib.load(model[i])
+            segment = nib.load(seg[i])
+            raw_data[image.shape].append([image.get_fdata(), segment.get_fdata()])
+        with h5py.File(raw, 'w') as f:
+            for i in raw_data:
+                f.create_dataset(str(i), data=raw_data[i])
+        return raw_data
+    
+    def load_raw_data(self, raw):
+        raw_file = h5py.File(raw, 'r') # should not close it immediately
+        raw_data = defaultdict(list)
+        for i in raw_file.keys():
+            # to get the matrix: self.data[i][:]
+            # d.data[i][j][0], d.data[i][j][1]
+            raw_data[i] = raw_file[i]
+        return raw_data
+    
+    def pad_raw_data(self, patch_size, pad, raw):
+        raw_data = None
+        if os.path.isfile(raw):
+            raw_data = self.load_raw_data(raw)
+        else:
+            raw_data = self.fetch_raw_data(raw)
+            
+        for i in raw_data:
+            for j in range(raw_data[i].shape[0]):
+                img = self.zero_pad(raw_data[i][j][0], patch_size)
+                tar = self.zero_pad(raw_data[i][j][1], patch_size)
+                self.data[img.shape].append([img, tar])
+        with h5py.File(pad, 'w') as f:
+            f.create_dataset("patch_size", data=patch_size)    
+            for i in self.data:
+                f.create_dataset(str(i), data=self.data[i])
+    
+    def load_data(self, patch_size=(32, 32, 32), 
+                  pad="./model/h5df_data/pad_data.h5", raw="./model/h5df_data/raw_data.h5"):
+        # self.data[image.shape][i][0]: image
+        # self.data[image.shape][i][1]: segment
+        if os.path.isfile(pad):
+            pad_file = h5py.File(pad, 'r')
+            if np.all(pad_file["patch_size"][:] == list(patch_size)):
+                for i in pad_file.keys():
+                    self.data[i] = pad_file[i]
+            else:
+                self.pad_raw_data(patch_size, pad, raw)
+        else:
+            self.pad_raw_data(patch_size, pad, raw)
+
+            
+
+    def show_image(self, images):
+        # show image with [None, None, : ,: ,:] dimension
+        def show_frame(id):
+            length = len(images)
+            for i in range(length):
+                plt.subplot(1, length, i+1)
+                plt.imshow(images[i][0, 0, id, :, :], cmap='gray')
+        interact(show_frame, 
+                 id=widgets.IntSlider(min=0, max=images[0].shape[2]-1, step=1, value=images[0].shape[2]/2))
+        
     def data_num(self):
         num = 0
         for i in self.data:
