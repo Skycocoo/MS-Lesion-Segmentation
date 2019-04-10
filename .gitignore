@@ -5,6 +5,7 @@
 *.pptx
 *.xlsx
 *.h5
+*.hdf5
 *.csv
 
 data/

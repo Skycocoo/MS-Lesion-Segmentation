@@ -22,7 +22,7 @@ class Data:
         # self.data[image.shape][i][1]: segment
         self.data = defaultdict(list)
         self.kfold = None
-        self.patch_index = defaultdict(list)
+        self.patch_index = None
         self.valid_index = {}
         random.seed(datetime.now())
         
@@ -64,7 +64,7 @@ class Data:
         with h5py.File(raw, 'w') as f:
             for i in raw_data:
                 f.create_dataset(str(i), data=raw_data[i])
-        return raw_data
+        return self.load_raw_data(raw)
     
     def load_raw_data(self, raw):
         raw_file = h5py.File(raw, 'r') # should not close it immediately
@@ -73,24 +73,29 @@ class Data:
             # to get the matrix: self.data[i][:]
             # d.data[i][j][0], d.data[i][j][1]
             raw_data[i] = raw_file[i]
-        return raw_data
+        return raw_data, raw_file
     
     def pad_raw_data(self, patch_size, pad, raw):
         raw_data = None
+        raw_file = None
         if os.path.isfile(raw):
-            raw_data = self.load_raw_data(raw)
+            raw_data, raw_file = self.load_raw_data(raw)
         else:
-            raw_data = self.fetch_raw_data(raw)
-            
+            raw_data, raw_file = self.fetch_raw_data(raw)
+        pad_data = defaultdict(list)
         for i in raw_data:
             for j in range(raw_data[i].shape[0]):
                 img = self.zero_pad(raw_data[i][j][0], patch_size)
                 tar = self.zero_pad(raw_data[i][j][1], patch_size)
-                self.data[img.shape].append([img, tar])
+                pad_data[img.shape].append([img, tar])
+        raw_file.close()
         with h5py.File(pad, 'w') as f:
             f.create_dataset("patch_size", data=patch_size)    
-            for i in self.data:
-                f.create_dataset(str(i), data=self.data[i])
+            for i in pad_data:
+                f.create_dataset(str(i), data=pad_data[i])
+        pad_file = h5py.File(pad, 'r')
+        for i in pad_file.keys():
+            self.data[i] = pad_file[i]
     
     def load_data(self, patch_size=(32, 32, 32), 
                   pad="./model/h5df_data/pad_data.h5", raw="./model/h5df_data/raw_data.h5"):
@@ -102,12 +107,31 @@ class Data:
                 for i in pad_file.keys():
                     self.data[i] = pad_file[i]
             else:
+                pad_file.close()
                 self.pad_raw_data(patch_size, pad, raw)
         else:
             self.pad_raw_data(patch_size, pad, raw)
+    
 
-            
-
+    
+    def gen_patch_indices(self, patch_size, patch_gap):
+        self.patch_index = defaultdict(list)
+        for i in self.data:
+            if i == "patch_size":
+                continue
+            shape = self.data[i][0][0].shape
+            patch_ind = []
+            patch_num = [int((shape[i]-patch_size[i]) / patch_gap) for i in range(len(shape))]
+            # assume this is a 3d image
+            for i in range(patch_num[0]):
+                for j in range(patch_num[1]):
+                    for k in range(patch_num[2]):
+                        patch_ind.append([i * patch_gap, j * patch_gap, k * patch_gap])
+            self.patch_index[i] = patch_ind
+        # for i in self.patch_index:
+            # print(np.array(self.patch_index[i]).shape)
+    
+    
     def show_image(self, images):
         # show image with [None, None, : ,: ,:] dimension
         def show_frame(id):
