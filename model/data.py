@@ -20,6 +20,8 @@ class Data:
     def __init__(self):
         # self.data[image.shape][i][0]: image
         # self.data[image.shape][i][1]: segment
+        
+        ########## maybe shape doesnt matter => just store in a list? ##########
         self.data = defaultdict(list)
         self.kfold = None
         self.patch_index = None
@@ -112,26 +114,6 @@ class Data:
         else:
             self.pad_raw_data(patch_size, pad, raw)
     
-
-    
-    def gen_patch_indices(self, patch_size, patch_gap):
-        self.patch_index = defaultdict(list)
-        for i in self.data:
-            if i == "patch_size":
-                continue
-            shape = self.data[i][0][0].shape
-            patch_ind = []
-            patch_num = [int((shape[i]-patch_size[i]) / patch_gap) for i in range(len(shape))]
-            # assume this is a 3d image
-            for i in range(patch_num[0]):
-                for j in range(patch_num[1]):
-                    for k in range(patch_num[2]):
-                        patch_ind.append([i * patch_gap, j * patch_gap, k * patch_gap])
-            self.patch_index[i] = patch_ind
-        # for i in self.patch_index:
-            # print(np.array(self.patch_index[i]).shape)
-    
-    
     def show_image(self, images):
         # show image with [None, None, : ,: ,:] dimension
         def show_frame(id):
@@ -142,26 +124,52 @@ class Data:
         interact(show_frame, 
                  id=widgets.IntSlider(min=0, max=images[0].shape[2]-1, step=1, value=images[0].shape[2]/2))
         
-    def data_num(self):
-        num = 0
+        
+        
+    def gen_patch_index(self, patch_size, patch_gap):
+        count = 0
+        self.patch_index = defaultdict(list)
         for i in self.data:
-            num += len(self.data[i])
-        return num
+            if i == "patch_size":
+                continue
+            shape = self.data[i][0][0].shape
+            patch_ind = []
+            patch_num = [int((shape[i]-patch_size[i]) / patch_gap) for i in range(len(shape))]
 
-    def prekfold(self, kfold=5, batch_size=2):
+            # assume this is a 3d image
+            for a in range(patch_num[0]):
+                for b in range(patch_num[1]):
+                    for c in range(patch_num[2]):
+                        patch_ind.append([a * patch_gap, b * patch_gap, c * patch_gap])
+            self.patch_index[i] = patch_ind
+            # total number of patches for this shape
+            count += len(patch_ind) * self.data[i].shape[0]
+            print("count: ", count)
+        print("count: ", count)
+        return count
+#         for i in self.patch_index:
+#             print(np.array(self.patch_index[i]).shape)
+
+    def prekfold(self, patch_size, patch_gap, batch_size, kfold=5):
         if (self.kfold == kfold):
             return
-        
         self.kfold = kfold
 
         # initialize validation index for training
         # K-fold LOOCV: leave one out cross validation
         for i in self.data:
-            self.valid_index[i] = random.sample(range(self.kfold), self.kfold)
+            if i == "patch_size":
+                continue
+            self.valid_index[i] = np.random.choice(range(self.kfold), self.kfold)
 
-        num = self.data_num()
+        num = self.gen_patch_index(patch_size, patch_gap)
+        
+        ###### need to recalculate training and validation number ######
+        
         train_num = num // self.kfold * (self.kfold - 1)
         valid_num = num - train_num
+        
+        print(self.valid_index)
 
         return train_num // batch_size, valid_num
     
