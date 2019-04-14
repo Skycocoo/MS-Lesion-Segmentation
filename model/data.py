@@ -24,7 +24,8 @@ class Data:
         # https://stackoverflow.com/questions/37214482/saving-with-h5py-arrays-of-different-sizes
         # cannot use h5df to store array with different sizes
         self.kfold = None
-        self.patch_index = None
+        self.patch_size = None
+        self.patch_index = defaultdict(list)
         self.valid_index = {}
         random.seed(datetime.now())
         
@@ -104,9 +105,12 @@ class Data:
             # f.create_dataset("pad_data", data=pad_data)
             for i in pad_data:
                 f.create_dataset(str(i), data=pad_data[i])
+
         pad_file = h5py.File(pad, 'r')
         # self.data = pad_file["pad_data"]
         for i in pad_file.keys():
+            if i == "patch_size":
+                continue
             self.data[i] = pad_file[i]
     
     def load_data(self, patch_size=(32, 32, 32), 
@@ -137,9 +141,9 @@ class Data:
         
         
         
-    def gen_patch_index(self, patch_size, patch_gap):
+    def gen_patch_index(self, patch_size, patch_gap, pat):
         count = 0
-        self.patch_index = defaultdict(list)
+        patch_index = defaultdict(list)
         for i in self.data:
             if i == "patch_size":
                 continue
@@ -152,16 +156,47 @@ class Data:
                 for b in range(patch_num[1]):
                     for c in range(patch_num[2]):
                         patch_ind.append([a * patch_gap, b * patch_gap, c * patch_gap])
-            self.patch_index[i] = patch_ind
+            # self.patch_index[i] = patch_ind
+            patch_index[i] = [np.copy(patch_ind) for _ in range(self.data[i].shape[0])]
+            for c in range(len(patch_index[i])):
+                # in-place shuffle
+                np.random.shuffle(patch_index[i][c])
             # total number of patches for this shape
             count += len(patch_ind) * self.data[i].shape[0]
+        
+        with h5py.File(pat, 'w') as f:
+            f.create_dataset("count", data=count)
+            f.create_dataset("patch_size", data=patch_size)
+            f.create_dataset("patch_gap", data=patch_gap)
+            for i in patch_index:
+                f.create_dataset(str(i), data=patch_index[i])
+        
+        pat_ind = h5py.File(pat, 'r')
+        for i in pat_ind.keys():
+            if i == "count" or i == "patch_size" or i == "patch_gap":
+                continue
+            self.patch_index[i] = pat_ind[i]
         # return the total number of patches
-        return count
+        return pat_ind["count"][()]
 
-    def prekfold(self, patch_size, patch_gap, batch_size, kfold=5):
-        if (self.kfold == kfold):
-            return
+    def load_patch_index(self, patch_size, patch_gap, pat):
+        if os.path.isfile(pat):
+            pat_ind = h5py.File(pat, 'r')
+            # print(list(pat_ind.keys()))
+            if (np.all(pat_ind["patch_size"][:] == list(patch_size))) and (pat_ind["patch_gap"][()] == patch_gap):
+                for i in pat_ind.keys():
+                    self.patch_index[i] = pat_ind[i]
+                return pat_ind["count"][()]
+            else:
+                pat_ind.close()
+                return self.gen_patch_index(patch_size, patch_gap, pat)
+        else:
+            return self.gen_patch_index(patch_size, patch_gap, pat)
+            
+    
+    def prekfold(self, patch_size, patch_gap, batch_size, pat='./model/h5df_data/pat_ind.h5', kfold=5):
         self.kfold = kfold
+        self.patch_size = patch_size
 
         # initialize validation index for training
         # K-fold LOOCV: leave one out cross validation
@@ -170,56 +205,62 @@ class Data:
                 continue
             self.valid_index[i] = random.sample(range(self.kfold), self.kfold)
 
-        num = self.gen_patch_index(patch_size, patch_gap)
+        num = self.load_patch_index(patch_size, patch_gap, pat)
         train_num = num // self.kfold * (self.kfold - 1)
         valid_num = num - train_num
         
         return train_num // batch_size, valid_num
     
-    # batch_size: 2 or 4
-    def train_generator(self, fold_index, batch_size=2):
-        for i in self.data:
-            input = [] # input
-            output = [] # target
-            unit = len(self.data[i]) // self.kfold
-            for j in range(len(self.data[i])):
-                # skip validation data
-                if j >= self.valid_index[i][fold_index] * unit and j < (self.valid_index[i][fold_index]+1) * unit:
-                    continue
-                if len(input) < batch_size:
-                    input.append(self.data[i][j][0])
-                    output.append(self.data[i][j][1])
-                else:
-                    yield np.array(input), np.array(output)
-                    # reinitialize input and output
-                    input = [self.data[i][j][0]]
-                    output = [self.data[i][j][1]]
-            if (len(input) == batch_size): 
-                yield np.array(input), np.array(output)
-            
-                    
 
+    # batch_size: 2 or 4
+    def train_generator(self, fold_index, batch_size=10):
+        img = []
+        tar = []
+        for i in self.data:
+            num_img = self.data[i].shape[0]
+            unit = num_img // self.kfold
+            # self.patch_index[i].shape: # img, # patches, 3d index
+            for ind in range(self.patch_index[i].shape[1]):
+                # self.data[i].shape: # img, img/tar, (3d image)
+                for j in range(num_img):
+                    # skip validation data
+                    if j >= self.valid_index[i][fold_index] * unit and j < (self.valid_index[i][fold_index]+1) * unit:
+                        continue
+                    if len(img) == batch_size:
+                        yield np.array(img), np.array(tar)
+                        img = []
+                        tar = []
+                    patch = self.patch_index[i][j][ind]
+                    image = self.data[i][j][0]
+                    target = self.data[i][j][1]
+                    img.append(image[patch[0]:patch[0]+self.patch_size[0], 
+                                     patch[1]:patch[1]+self.patch_size[1], 
+                                     patch[2]:patch[2]+self.patch_size[2]])
+                    tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
+                                     patch[1]:patch[1]+self.patch_size[1], 
+                                     patch[2]:patch[2]+self.patch_size[2]])
+        if len(img) == batch_size:
+            yield np.array(img), np.array(tar)
+
+            
     # each scanner yield a simple validation sample
     def valid_generator(self, fold_index):
-#         while True:
-            for i in self.valid_index:
-                input = [self.data[i][fold_index][0]]
-                output = [self.data[i][fold_index][1]]
-#                 valid = self.data[i][fold_index]
-#                 input.append(np.expand_dims(valid[0], axis=0))
-#                 output.append(np.expand_dims(valid[1], axis=0))
-
-#                 shape = valid[0].shape
-# #                 x = shape[0] // 2
-# #                 y = shape[1] // 2
-# #                 z = shape[2] // 2
-# #                 input.append(np.expand_dims(valid[0][x : x + patch_size, y : y + patch_size, z : z + patch_size], axis=0))
-# #                 output.append(np.expand_dims(valid[1][x : x + patch_size, y : y + patch_size, z : z + patch_size], axis=0))
-#                 input.append(np.expand_dims(ndimage.zoom(valid[0], (32/shape[0], 32/shape[1], 32/shape[2])), axis=0))
-#                 output.append(np.expand_dims(ndimage.zoom(valid[1], (32/shape[0], 32/shape[1], 32/shape[2])), axis=0))
-                yield np.array(input), np.array(output)
-            
-#             unit = len(self.data[i]) // self.kfold
-#             for j in range(self.valid_index[i][fold_index] * unit, self.valid_index[i][fold_index] * (unit+1)):
-#                 valid = self.data[i][j]
-#                 yield valid[0], valid[1]
+        img = []
+        tar = []
+        for i in self.valid_index:
+            unit = self.data[i].shape[0] // self.kfold
+            for j in range(self.valid_index[i][fold_index] * unit, (self.valid_index[i][fold_index]+1) * unit):
+                # self.data[i][j][0]: training image
+                for ind in range(self.patch_index[i].shape[1]):
+                    patch = self.patch_index[i][j][ind]
+                    image = self.data[i][j][0]
+                    target = self.data[i][j][1]
+                    img.append(image[patch[0]:patch[0]+self.patch_size[0], 
+                                     patch[1]:patch[1]+self.patch_size[1], 
+                                     patch[2]:patch[2]+self.patch_size[2]])
+                    tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
+                                     patch[1]:patch[1]+self.patch_size[1], 
+                                     patch[2]:patch[2]+self.patch_size[2]])
+                    yield np.array(img), np.array(tar)
+                    img = []
+                    tar = []
