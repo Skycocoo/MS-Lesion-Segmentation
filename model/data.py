@@ -18,17 +18,51 @@ from scipy import ndimage, misc
 
 class Data:
     def __init__(self):
-        # self.data[image.shape][i][0]: image
-        # self.data[image.shape][i][1]: segment
-        
         ########## maybe shape doesnt matter => just store in a list? ##########
         self.data = defaultdict(list)
+        # self.data = [] 
+        # https://stackoverflow.com/questions/37214482/saving-with-h5py-arrays-of-different-sizes
+        # cannot use h5df to store array with different sizes
         self.kfold = None
         self.patch_index = None
         self.valid_index = {}
         random.seed(datetime.now())
         
-          
+    def fetch_raw_data(self, raw):
+        def fetch_file():
+            model = []
+            seg = []
+            root, sub_dir, _ = next(os.walk(os.getcwd() + '/data/'))
+            for sub in sub_dir:
+                model.append(os.path.join(root, sub + '/FLAIR_preprocessed.nii.gz'))
+                seg.append(os.path.join(root, sub + '/Consensus.nii.gz'))
+            return model, seg
+        
+        model, seg = fetch_file()
+        raw_data = defaultdict(list)
+        # raw_data = []
+        # raw_data[i][0]: image, raw_data[i][1]: target
+        for i in range(len(model)):
+            image = nib.load(model[i])
+            segment = nib.load(seg[i])
+            raw_data[image.shape].append([image.get_fdata(), segment.get_fdata()])
+            # raw_data.append([image.get_fdata(), segment.get_fdata()])
+        with h5py.File(raw, 'w') as f:
+            # f.create_dataset("raw_data", data=raw_data)
+            for i in raw_data:
+                f.create_dataset(str(i), data=raw_data[i])
+        return self.load_raw_data(raw)
+    
+    def load_raw_data(self, raw):
+        raw_file = h5py.File(raw, 'r') # should not close it immediately
+        # raw_data = raw_file["raw_data"]
+        raw_data = defaultdict(list)
+        for i in raw_file.keys():
+            # to get the matrix: self.data[i][:]
+            # d.data[i][j][0], d.data[i][j][1]
+            raw_data[i] = raw_file[i]
+        return raw_data, raw_file
+    
     def zero_pad(self, image, div=(32, 32, 32)):
         pad_size = [0, 0, 0]
         pad = False
@@ -47,36 +81,7 @@ class Data:
         else:
             return image
 
-    def fetch_raw_data(self, raw):
-        def fetch_file():
-            model = []
-            seg = []
-            root, sub_dir, _ = next(os.walk(os.getcwd() + '/data/'))
-            for sub in sub_dir:
-                model.append(os.path.join(root, sub + '/FLAIR_preprocessed.nii.gz'))
-                seg.append(os.path.join(root, sub + '/Consensus.nii.gz'))
-            return model, seg
         
-        model, seg = fetch_file()
-        raw_data = defaultdict(list)
-        for i in range(len(model)):
-            image = nib.load(model[i])
-            segment = nib.load(seg[i])
-            raw_data[image.shape].append([image.get_fdata(), segment.get_fdata()])
-        with h5py.File(raw, 'w') as f:
-            for i in raw_data:
-                f.create_dataset(str(i), data=raw_data[i])
-        return self.load_raw_data(raw)
-    
-    def load_raw_data(self, raw):
-        raw_file = h5py.File(raw, 'r') # should not close it immediately
-        raw_data = defaultdict(list)
-        for i in raw_file.keys():
-            # to get the matrix: self.data[i][:]
-            # d.data[i][j][0], d.data[i][j][1]
-            raw_data[i] = raw_file[i]
-        return raw_data, raw_file
-    
     def pad_raw_data(self, patch_size, pad, raw):
         raw_data = None
         raw_file = None
@@ -84,18 +89,23 @@ class Data:
             raw_data, raw_file = self.load_raw_data(raw)
         else:
             raw_data, raw_file = self.fetch_raw_data(raw)
+        
+        # pad_data = []
         pad_data = defaultdict(list)
         for i in raw_data:
             for j in range(raw_data[i].shape[0]):
                 img = self.zero_pad(raw_data[i][j][0], patch_size)
                 tar = self.zero_pad(raw_data[i][j][1], patch_size)
                 pad_data[img.shape].append([img, tar])
+                # pad_data.append([img, tar])
         raw_file.close()
         with h5py.File(pad, 'w') as f:
-            f.create_dataset("patch_size", data=patch_size)    
+            f.create_dataset("patch_size", data=patch_size)
+            # f.create_dataset("pad_data", data=pad_data)
             for i in pad_data:
                 f.create_dataset(str(i), data=pad_data[i])
         pad_file = h5py.File(pad, 'r')
+        # self.data = pad_file["pad_data"]
         for i in pad_file.keys():
             self.data[i] = pad_file[i]
     
@@ -106,6 +116,7 @@ class Data:
         if os.path.isfile(pad):
             pad_file = h5py.File(pad, 'r')
             if np.all(pad_file["patch_size"][:] == list(patch_size)):
+                # self.data = pad_file["pad_data"]
                 for i in pad_file.keys():
                     self.data[i] = pad_file[i]
             else:
@@ -144,11 +155,8 @@ class Data:
             self.patch_index[i] = patch_ind
             # total number of patches for this shape
             count += len(patch_ind) * self.data[i].shape[0]
-            print("count: ", count)
-        print("count: ", count)
+        # return the total number of patches
         return count
-#         for i in self.patch_index:
-#             print(np.array(self.patch_index[i]).shape)
 
     def prekfold(self, patch_size, patch_gap, batch_size, kfold=5):
         if (self.kfold == kfold):
@@ -160,70 +168,34 @@ class Data:
         for i in self.data:
             if i == "patch_size":
                 continue
-            self.valid_index[i] = np.random.choice(range(self.kfold), self.kfold)
+            self.valid_index[i] = random.sample(range(self.kfold), self.kfold)
 
         num = self.gen_patch_index(patch_size, patch_gap)
-        
-        ###### need to recalculate training and validation number ######
-        
         train_num = num // self.kfold * (self.kfold - 1)
         valid_num = num - train_num
         
-        print(self.valid_index)
-
         return train_num // batch_size, valid_num
     
-#     def prepatch(self, patch_size=(32, 32, 32), gap=10):
-#         for i in self.data:
-            
     # batch_size: 2 or 4
     def train_generator(self, fold_index, batch_size=2):
-#         while True:
-#             print("new epoch")
-            for i in self.data:
-#                 print(i)
-                input = [] # input
-                output = [] # target
-                unit = len(self.data[i]) // self.kfold
-                for j in range(len(self.data[i])):
-                    # skip validation data
-                    if j >= self.valid_index[i][fold_index] * unit and j < (self.valid_index[i][fold_index]+1) * unit:
-#                         print("skipping {0}".format(j))
-                        continue
-                    if len(input) < batch_size:
-                        input.append(self.data[i][j][0])
-                        output.append(self.data[i][j][1])
-#                         input.append(np.expand_dims(self.data[i][j][0], axis=0))
-#                         output.append(np.expand_dims(self.data[i][j][1], axis=0))
-
-#                         shape = self.data[i][j][0].shape
-# #                         x = shape[0] // 2
-# #                         y = shape[1] // 2
-# #                         z = shape[2] // 2
-# #                         input.append(np.expand_dims(self.data[i][j][0][x : x + patch_size, y : y + patch_size, z : z + patch_size], axis=0))
-# #                         output.append(np.expand_dims(self.data[i][j][1][x : x + patch_size, y : y + patch_size, z : z + patch_size], axis=0))
-#                         input.append(np.expand_dims(ndimage.zoom(self.data[i][j][0], (32/shape[0], 32/shape[1], 32/shape[2])), axis=0))
-#                         output.append(np.expand_dims(ndimage.zoom(self.data[i][j][1], (32/shape[0], 32/shape[1], 32/shape[2])), axis=0))
-            
-                    else:
-                        # print(np.array(input).shape, np.array(output).shape)
-                        yield np.array(input), np.array(output)
-                        # reinitialize input and output
-                        input = [self.data[i][j][0]]
-                        output = [self.data[i][j][1]]
-#                         input.append(np.expand_dims(self.data[i][j][0], axis=0))
-#                         output.append(np.expand_dims(self.data[i][j][1], axis=0))
-                                      
-#                         shape = self.data[i][j][0].shape
-# #                         x = shape[0] // 2
-# #                         y = shape[1] // 2
-# #                         z = shape[2] // 2
-# #                         input.append(np.expand_dims(self.data[i][j][0][x : x + patch_size, y : y + patch_size, z : z + patch_size], axis=0))
-# #                         output.append(np.expand_dims(self.data[i][j][1][x : x + patch_size, y : y + patch_size, z : z + patch_size], axis=0))
-#                         input.append(np.expand_dims(ndimage.zoom(self.data[i][j][0], (32/shape[0], 32/shape[1], 32/shape[2])), axis=0))
-#                         output.append(np.expand_dims(ndimage.zoom(self.data[i][j][1], (32/shape[0], 32/shape[1], 32/shape[2])), axis=0))
-                if (len(input) == batch_size): 
+        for i in self.data:
+            input = [] # input
+            output = [] # target
+            unit = len(self.data[i]) // self.kfold
+            for j in range(len(self.data[i])):
+                # skip validation data
+                if j >= self.valid_index[i][fold_index] * unit and j < (self.valid_index[i][fold_index]+1) * unit:
+                    continue
+                if len(input) < batch_size:
+                    input.append(self.data[i][j][0])
+                    output.append(self.data[i][j][1])
+                else:
                     yield np.array(input), np.array(output)
+                    # reinitialize input and output
+                    input = [self.data[i][j][0]]
+                    output = [self.data[i][j][1]]
+            if (len(input) == batch_size): 
+                yield np.array(input), np.array(output)
             
                     
 
