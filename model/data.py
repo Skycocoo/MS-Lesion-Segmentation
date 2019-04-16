@@ -194,7 +194,7 @@ class Data:
             return self.gen_patch_index(patch_size, patch_gap, pat)
             
     
-    def prekfold(self, patch_size, patch_gap, batch_size, pat='./model/h5df_data/pat_ind.h5', kfold=5):
+    def prekfold(self, patch_size, patch_gap, batch_size, kfold=5, pat='./model/h5df_data/pat_ind.h5'):
         self.kfold = kfold
         self.patch_size = patch_size
 
@@ -227,7 +227,10 @@ class Data:
                     if j >= self.valid_index[i][fold_index] * unit and j < (self.valid_index[i][fold_index]+1) * unit:
                         continue
                     if len(img) == batch_size:
-                        yield np.array(img), np.array(tar)
+                        # 5D tensor with shape: 
+                        # (samples, channels, conv_dim1, conv_dim2, conv_dim3) if data_format='channels_first' 
+                        # https://www.tensorflow.org/api_docs/python/tf/keras/layers/Conv3D
+                        yield np.expand_dims(img, axis=1), np.expand_dims(tar, axis=1)
                         img = []
                         tar = []
                     patch = self.patch_index[i][j][ind]
@@ -240,7 +243,7 @@ class Data:
                                      patch[1]:patch[1]+self.patch_size[1], 
                                      patch[2]:patch[2]+self.patch_size[2]])
         if len(img) == batch_size:
-            yield np.array(img), np.array(tar)
+            yield np.expand_dims(img, axis=1), np.expand_dims(tar, axis=1)
 
             
     # each scanner yield a simple validation sample
@@ -261,6 +264,6 @@ class Data:
                     tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
                                      patch[1]:patch[1]+self.patch_size[1], 
                                      patch[2]:patch[2]+self.patch_size[2]])
-                    yield np.array(img), np.array(tar)
+                    yield np.expand_dims(img, axis=1), np.expand_dims(tar, axis=1)
                     img = []
                     tar = []
