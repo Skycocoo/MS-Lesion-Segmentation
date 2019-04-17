@@ -29,7 +29,7 @@ class Data:
         self.valid_index = {}
         random.seed(datetime.now())
         
-    def fetch_raw_data(self, raw):
+    def fetch_raw_data(self, raw_path):
         def fetch_file():
             model = []
             seg = []
@@ -48,14 +48,14 @@ class Data:
             segment = nib.load(seg[i])
             raw_data[image.shape].append([image.get_fdata(), segment.get_fdata()])
             # raw_data.append([image.get_fdata(), segment.get_fdata()])
-        with h5py.File(raw, 'w') as f:
+        with h5py.File(raw_path, 'w') as f:
             # f.create_dataset("raw_data", data=raw_data)
             for i in raw_data:
                 f.create_dataset(str(i), data=raw_data[i])
         return self.load_raw_data(raw)
     
-    def load_raw_data(self, raw):
-        raw_file = h5py.File(raw, 'r') # should not close it immediately
+    def load_raw_data(self, raw_path):
+        raw_file = h5py.File(raw_path, 'r') # should not close it immediately
         # raw_data = raw_file["raw_data"]
         raw_data = defaultdict(list)
         for i in raw_file.keys():
@@ -83,13 +83,13 @@ class Data:
             return image
 
         
-    def pad_raw_data(self, patch_size, pad, raw):
+    def pad_raw_data(self, patch_size, pad_path, raw_path):
         raw_data = None
         raw_file = None
-        if os.path.isfile(raw):
-            raw_data, raw_file = self.load_raw_data(raw)
+        if os.path.isfile(raw_path):
+            raw_data, raw_file = self.load_raw_data(raw_path)
         else:
-            raw_data, raw_file = self.fetch_raw_data(raw)
+            raw_data, raw_file = self.fetch_raw_data(raw_path)
         
         # pad_data = []
         pad_data = defaultdict(list)
@@ -100,13 +100,13 @@ class Data:
                 pad_data[img.shape].append([img, tar])
                 # pad_data.append([img, tar])
         raw_file.close()
-        with h5py.File(pad, 'w') as f:
+        with h5py.File(pad_path, 'w') as f:
             f.create_dataset("patch_size", data=patch_size)
             # f.create_dataset("pad_data", data=pad_data)
             for i in pad_data:
                 f.create_dataset(str(i), data=pad_data[i])
 
-        pad_file = h5py.File(pad, 'r')
+        pad_file = h5py.File(pad_path, 'r')
         # self.data = pad_file["pad_data"]
         for i in pad_file.keys():
             if i == "patch_size":
@@ -114,20 +114,20 @@ class Data:
             self.data[i] = pad_file[i]
     
     def load_data(self, patch_size=(32, 32, 32), 
-                  pad="./model/h5df_data/pad_data.h5", raw="./model/h5df_data/raw_data.h5"):
+                  pad_path="./model/h5df_data/pad_data.h5", raw_path="./model/h5df_data/raw_data.h5"):
         # self.data[image.shape][i][0]: image
         # self.data[image.shape][i][1]: segment
-        if os.path.isfile(pad):
-            pad_file = h5py.File(pad, 'r')
+        if os.path.isfile(pad_path):
+            pad_file = h5py.File(pad_path, 'r')
             if np.all(pad_file["patch_size"][:] == list(patch_size)):
                 # self.data = pad_file["pad_data"]
                 for i in pad_file.keys():
                     self.data[i] = pad_file[i]
             else:
                 pad_file.close()
-                self.pad_raw_data(patch_size, pad, raw)
+                self.pad_raw_data(patch_size, pad_path, raw_path)
         else:
-            self.pad_raw_data(patch_size, pad, raw)
+            self.pad_raw_data(patch_size, pad_path, raw_path)
     
     def show_image(self, images):
         # show image with [None, None, : ,: ,:] dimension
@@ -141,7 +141,7 @@ class Data:
         
         
         
-    def gen_patch_index(self, patch_size, patch_gap, pat):
+    def gen_patch_index(self, patch_size, patch_gap, index_path):
         count = 0
         patch_index = defaultdict(list)
         for i in self.data:
@@ -164,37 +164,85 @@ class Data:
             # total number of patches for this shape
             count += len(patch_ind) * self.data[i].shape[0]
         
-        with h5py.File(pat, 'w') as f:
+        with h5py.File(index_path, 'w') as f:
             f.create_dataset("count", data=count)
             f.create_dataset("patch_size", data=patch_size)
             f.create_dataset("patch_gap", data=patch_gap)
             for i in patch_index:
                 f.create_dataset(str(i), data=patch_index[i])
         
-        pat_ind = h5py.File(pat, 'r')
-        for i in pat_ind.keys():
+        index_file = h5py.File(index_path, 'r')
+        for i in index_file.keys():
             if i == "count" or i == "patch_size" or i == "patch_gap":
                 continue
-            self.patch_index[i] = pat_ind[i]
+            self.patch_index[i] = index_file[i]
         # return the total number of patches
-        return pat_ind["count"][()]
+        return index_file["count"][()]
 
-    def load_patch_index(self, patch_size, patch_gap, pat):
-        if os.path.isfile(pat):
-            pat_ind = h5py.File(pat, 'r')
+    def load_patch_index(self, patch_size, patch_gap, index_path):
+        if os.path.isfile(index_path):
+            index_file = h5py.File(index_path, 'r')
             # print(list(pat_ind.keys()))
-            if (np.all(pat_ind["patch_size"][:] == list(patch_size))) and (pat_ind["patch_gap"][()] == patch_gap):
-                for i in pat_ind.keys():
-                    self.patch_index[i] = pat_ind[i]
-                return pat_ind["count"][()]
+            if (np.all(index_file["patch_size"][:] == list(patch_size))) and (index_file["patch_gap"][()] == patch_gap):
+                for i in index_file.keys():
+                    self.patch_index[i] = index_file[i]
+                return index_file["count"][()]
             else:
-                pat_ind.close()
-                return self.gen_patch_index(patch_size, patch_gap, pat)
+                index_file.close()
+                return self.gen_patch_index(patch_size, patch_gap, index_path)
         else:
-            return self.gen_patch_index(patch_size, patch_gap, pat)
+            return self.gen_patch_index(patch_size, patch_gap, index_path)
             
+    def gen_patches(self, patch_size, patch_gap, patch_path='./model/h5df_data/patches.h5'):
+        ########### problem: need too much memory to store those slices before storing into file ###########
+        
+        # patches: [shape][img][[img, tar][img, tar]...]
+        patches = defaultdict(list)
+        for i in self.data:
+            for j in range(self.data[i].shape[0]):
+                patch_per = [] 
+                # self.patch_index[i].shape: # img, # patches, 3d index
+                for ind in range(self.patch_index[i].shape[1]):
+                    patch = self.patch_index[i][j][ind]
+                    image = self.data[i][j][0]
+                    target = self.data[i][j][1]
+                    patch_per.append([image[patch[0]:patch[0]+self.patch_size[0], 
+                                            patch[1]:patch[1]+self.patch_size[1], 
+                                            patch[2]:patch[2]+self.patch_size[2]],
+                                     target[patch[0]:patch[0]+self.patch_size[0], 
+                                            patch[1]:patch[1]+self.patch_size[1], 
+                                            patch[2]:patch[2]+self.patch_size[2]]])
+                patches[i].append(partch_per)
+        
+        with h5py.File(patch_path, 'w') as f:
+            f.create_dataset("patch_size", data=patch_size)
+            f.create_dataset("patch_gap", data=patch_gap)
+            for i in patches:
+                f.create_dataset(str(i), data=patches[i])
+        
+        patch_file = h5py.File(patch_path, 'r')
+        for i in patch_file.keys():
+            if i == "patch_size" or i == "patch_gap":
+                continue
+            self.patches[i] = patch_file[i]
     
-    def prekfold(self, patch_size, patch_gap, batch_size, kfold=5, pat='./model/h5df_data/pat_ind.h5'):
+    def load_patches(self, patch_size, patch_gap, patch_path='./model/h5df_data/patches.h5'):
+        if os.path.isfile(patch_path):
+            patch_file = h5py.File(patch_path, 'r')
+            # print(list(pat_ind.keys()))
+            if (np.all(patch_file["patch_size"][:] == list(patch_size))) and (patch_file["patch_gap"][()] == patch_gap):
+                for i in patch_file.keys():
+                    self.patches[i] = patch_file[i]
+            else:
+                patch_file.close()
+                self.gen_patches(patch_size, patch_gap, patch_path)
+        else:
+            self.gen_patches(patch_size, patch_gap, patch_path)
+    
+    
+    def prekfold(self, patch_size, patch_gap, batch_size, kfold=5, 
+                 index_path='./model/h5df_data/pat_ind.h5', 
+                 patch_path='./model/h5df_data/patches.h5'):
         self.kfold = kfold
         self.patch_size = patch_size
 
@@ -205,9 +253,11 @@ class Data:
                 continue
             self.valid_index[i] = random.sample(range(self.kfold), self.kfold)
 
-        num = self.load_patch_index(patch_size, patch_gap, pat)
+        num = self.load_patch_index(patch_size, patch_gap, index_path)
         train_num = num // self.kfold * (self.kfold - 1)
         valid_num = num - train_num
+        
+        # self.load_patches(patch_size, patch_gap, patch_path)
         
         return train_num // batch_size, valid_num
     
@@ -217,12 +267,11 @@ class Data:
         img = []
         tar = []
         for i in self.data:
-            num_img = self.data[i].shape[0]
-            unit = num_img // self.kfold
+            unit = self.data[i].shape[0] // self.kfold
             # self.patch_index[i].shape: # img, # patches, 3d index
             for ind in range(self.patch_index[i].shape[1]):
                 # self.data[i].shape: # img, img/tar, (3d image)
-                for j in range(num_img):
+                for j in range(self.data[i].shape[0]):
                     # skip validation data
                     if j >= self.valid_index[i][fold_index] * unit and j < (self.valid_index[i][fold_index]+1) * unit:
                         continue
