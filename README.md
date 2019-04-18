@@ -1,20 +1,18 @@
 ## Todo
 
 - V-net (3D) / U-net (2D)
-- Display data: [itk-SNAP](http://www.itksnap.org/pmwiki/pmwiki.php?n=Main.HomePage)
-
 - classify / cluster lesion (subtypes)
-- cross-validation: 3:1
-
----
-
-- deal with different input shape
-- modify existing unet
 
 ---
 
 - soft dice loss / hard dice loss
 - find more data to train
+
+---
+
+- modify Data to fit keras [DataGenerator](https://stanford.edu/~shervine/blog/keras-how-to-generate-data-on-the-fly)
+- modify sbatch file for more training time
+- merge image directly instead of storing all patches first
 
 
 ## Notes
