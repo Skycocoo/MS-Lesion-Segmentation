@@ -20,15 +20,11 @@ import keras
 
 class Data:
     def __init__(self):
-        ########## maybe shape doesnt matter => just store in a list? ##########
-        ##########    h5py cannot handle array of different shapes    ##########
-        
         self.data = defaultdict(list)
-        # self.data = [] 
-        # https://stackoverflow.com/questions/37214482/saving-with-h5py-arrays-of-different-sizes
-        # cannot use h5df to store array with different sizes
         self.kfold = None
+        self.batch_size = None
         self.patch_size = None
+        self.patch_gap = None
         self.patch_index = defaultdict(list)
         self.valid_index = {}
         random.seed(datetime.now())
@@ -102,16 +98,13 @@ class Data:
                 img = self.zero_pad(raw_data[i][j][0], patch_size)
                 tar = self.zero_pad(raw_data[i][j][1], patch_size)
                 pad_data[img.shape].append([img, tar])
-                # pad_data.append([img, tar])
         raw_file.close()
         with h5py.File(pad_path, 'w') as f:
             f.create_dataset("patch_size", data=patch_size)
-            # f.create_dataset("pad_data", data=pad_data)
             for i in pad_data:
                 f.create_dataset(str(i), data=pad_data[i])
 
         pad_file = h5py.File(pad_path, 'r')
-        # self.data = pad_file["pad_data"]
         for i in pad_file.keys():
             if i == "patch_size":
                 continue
@@ -197,58 +190,11 @@ class Data:
         else:
             return self.gen_patch_index(patch_size, patch_gap, index_path)
             
-    def gen_patches(self, patch_size, patch_gap, patch_path='./model/h5df_data/patches.h5'):
-        ########### problem: need too much memory to store those slices before storing into file ###########
-        
-        # patches: [shape][img][[img, tar][img, tar]...]
-        patches = defaultdict(list)
-        for i in self.data:
-            for j in range(self.data[i].shape[0]):
-                patch_per = [] 
-                # self.patch_index[i].shape: # img, # patches, 3d index
-                for ind in range(self.patch_index[i].shape[1]):
-                    patch = self.patch_index[i][j][ind]
-                    image = self.data[i][j][0]
-                    target = self.data[i][j][1]
-                    patch_per.append([image[patch[0]:patch[0]+self.patch_size[0], 
-                                            patch[1]:patch[1]+self.patch_size[1], 
-                                            patch[2]:patch[2]+self.patch_size[2]],
-                                     target[patch[0]:patch[0]+self.patch_size[0], 
-                                            patch[1]:patch[1]+self.patch_size[1], 
-                                            patch[2]:patch[2]+self.patch_size[2]]])
-                patches[i].append(partch_per)
-        
-        with h5py.File(patch_path, 'w') as f:
-            f.create_dataset("patch_size", data=patch_size)
-            f.create_dataset("patch_gap", data=patch_gap)
-            for i in patches:
-                f.create_dataset(str(i), data=patches[i])
-        
-        patch_file = h5py.File(patch_path, 'r')
-        for i in patch_file.keys():
-            if i == "patch_size" or i == "patch_gap":
-                continue
-            self.patches[i] = patch_file[i]
-    
-    def load_patches(self, patch_size, patch_gap, patch_path='./model/h5df_data/patches.h5'):
-        if os.path.isfile(patch_path):
-            patch_file = h5py.File(patch_path, 'r')
-            # print(list(pat_ind.keys()))
-            if (np.all(patch_file["patch_size"][:] == list(patch_size))) and (patch_file["patch_gap"][()] == patch_gap):
-                for i in patch_file.keys():
-                    self.patches[i] = patch_file[i]
-            else:
-                patch_file.close()
-                self.gen_patches(patch_size, patch_gap, patch_path)
-        else:
-            self.gen_patches(patch_size, patch_gap, patch_path)
-    
-    
-    def prekfold(self, patch_size, patch_gap, batch_size, kfold=5, 
-                 index_path='./model/h5df_data/pat_ind.h5', 
-                 patch_path='./model/h5df_data/patches.h5'):
+    def prekfold(self, patch_size, patch_gap, batch_size, kfold=5, index_path='./model/h5df_data/pat_ind.h5'):
         self.kfold = kfold
         self.patch_size = patch_size
+        self.patch_gap = patch_gap
+        self.batch_size = batch_size
 
         # initialize validation index for training
         # K-fold LOOCV: leave one out cross validation
@@ -261,119 +207,139 @@ class Data:
         train_num = num // self.kfold * (self.kfold - 1)
         valid_num = num - train_num
         
-        # self.load_patches(patch_size, patch_gap, patch_path)
-        
-        return train_num // batch_size, valid_num
-    
-
-    # batch_size: 2 or 4
-    def train_generator(self, fold_index, batch_size=10):
-        img = []
-        tar = []
-        for i in self.data:
-            unit = self.data[i].shape[0] // self.kfold
-            # self.patch_index[i].shape: # img, # patches, 3d index
-            for ind in range(self.patch_index[i].shape[1]):
-                # self.data[i].shape: # img, img/tar, (3d image)
-                for j in range(self.data[i].shape[0]):
-                    # skip validation data
-                    if j >= self.valid_index[i][fold_index] * unit and j < (self.valid_index[i][fold_index]+1) * unit:
-                        continue
-                    if len(img) == batch_size:
-                        # 5D tensor with shape: 
-                        # (samples, channels, conv_dim1, conv_dim2, conv_dim3) if data_format='channels_first' 
-                        # https://www.tensorflow.org/api_docs/python/tf/keras/layers/Conv3D
-                        yield np.expand_dims(img, axis=1), np.expand_dims(tar, axis=1)
-                        img = []
-                        tar = []
-                    patch = self.patch_index[i][j][ind]
-                    image = self.data[i][j][0]
-                    target = self.data[i][j][1]
-                    img.append(image[patch[0]:patch[0]+self.patch_size[0], 
-                                     patch[1]:patch[1]+self.patch_size[1], 
-                                     patch[2]:patch[2]+self.patch_size[2]])
-                    tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
-                                     patch[1]:patch[1]+self.patch_size[1], 
-                                     patch[2]:patch[2]+self.patch_size[2]])
-        if len(img) == batch_size:
-            yield np.expand_dims(img, axis=1), np.expand_dims(tar, axis=1)
-
-            
-    # each scanner yield a simple validation sample
-    def valid_generator(self, fold_index):
-        img = []
-        tar = []
-        for i in self.valid_index:
-            unit = self.data[i].shape[0] // self.kfold
-            for j in range(self.valid_index[i][fold_index] * unit, (self.valid_index[i][fold_index]+1) * unit):
-                # self.data[i][j][0]: training image
-                for ind in range(self.patch_index[i].shape[1]):
-                    patch = self.patch_index[i][j][ind]
-                    image = self.data[i][j][0]
-                    target = self.data[i][j][1]
-                    img.append(image[patch[0]:patch[0]+self.patch_size[0], 
-                                     patch[1]:patch[1]+self.patch_size[1], 
-                                     patch[2]:patch[2]+self.patch_size[2]])
-                    tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
-                                     patch[1]:patch[1]+self.patch_size[1], 
-                                     patch[2]:patch[2]+self.patch_size[2]])
-                    yield np.expand_dims(img, axis=1), np.expand_dims(tar, axis=1)
-                    img = []
-                    tar = []
-
+        return train_num // batch_size, valid_num // batch_size
                     
 # https://stanford.edu/~shervine/blog/keras-how-to-generate-data-on-the-fly
 # https://www.tensorflow.org/api_docs/python/tf/keras/utils/Sequence
-
 class DataGenerator(keras.utils.Sequence):
     'Generates data for Keras'
-    def __init__(self, list_IDs, labels, batch_size=32, dim=(32,32,32), n_channels=1,
-                 n_classes=10, shuffle=True):
-        'Initialization'
-        self.dim = dim
+    def __init__(self, pad_data, pad_ind, kfold, batch_size, 
+                 patch_size, patch_gap, valid_ind, is_train = False):
+        self.data = pad_data
+        self.patch_index = pad_ind
+        self.kfold = kfold
         self.batch_size = batch_size
-        self.labels = labels
-        self.list_IDs = list_IDs
-        self.n_channels = n_channels
-        self.n_classes = n_classes
-        self.shuffle = shuffle
-        self.on_epoch_end()
-
+        self.patch_size = patch_size
+        self.patch_gap = patch_gap
+        self.valid_index = valid_ind
+        self.isTrain = is_train
+        self.fold_index = None
+        
+    def set_index(self, index):
+        self.fold_index = index
+        
     def __len__(self):
-        'Denotes the number of batches per epoch'
-        return int(np.floor(len(self.list_IDs) / self.batch_size))
+        # count the total number of patches
+        count = 0
+        for i in self.patch_index:
+            if i == "count" or i == "patch_size" or i == "patch_gap":
+                continue
+            unit = self.patch_index[i].shape[0] // self.kfold
+            for j in range(self.patch_index[i].shape[0]):
+                # print(j)
+                if j >= self.valid_index[i][self.fold_index] * unit and j < (self.valid_index[i][self.fold_index]+1) * unit:
+                    if self.isTrain:
+                        continue
+                    else:
+                        count += self.patch_index[i][j].shape[0]
+                else:
+                    if self.isTrain:
+                        count += self.patch_index[i][j].shape[0]
+                    else:
+                        continue
+        return count // self.batch_size
+    
+            
+    def __getitem__(self, batch_index):
+        start = batch_index * self.batch_size
+        first_iter = True
+        img = []
+        tar = []
+        
+        for i in self.patch_index:
+            if i == "count" or i == "patch_size" or i == "patch_gap":
+                continue
+            unit = self.data[i].shape[0] // self.kfold
+            for j in range(self.patch_index[i].shape[0]):
+                if j >= self.valid_index[i][self.fold_index] * unit and j < (self.valid_index[i][self.fold_index]+1) * unit:
+                    if self.isTrain:
+                        continue
+                    else:
+                        if start > self.patch_index[i][j].shape[0]:
+                            start -= self.patch_index[i][j].shape[0]
+                        else:
+                            # generate
+                            if first_iter:
+                                # first iter: append from start
+                                start_iter = start
+                                first_iter = False
+                                for k in range(start_iter, self.patch_index[i][j].shape[0]):
+                                    patch = self.patch_index[i][j][k]
+                                    image = self.data[i][j][0]
+                                    target = self.data[i][j][1]
+                                    img.append(image[patch[0]:patch[0]+self.patch_size[0], 
+                                                     patch[1]:patch[1]+self.patch_size[1], 
+                                                     patch[2]:patch[2]+self.patch_size[2]])
+                                    tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
+                                                     patch[1]:patch[1]+self.patch_size[1], 
+                                                     patch[2]:patch[2]+self.patch_size[2]])
+                                    start -= 1
+                                    if (start == 0):
+                                        return np.expand_dims(img, axis=1), np.expand_dims(tar, axis=1)
+                            else:
+                                # append from first patch for current image
+                                for k in range(self.patch_index[i][j].shape[0]):
+                                    patch = self.patch_index[i][j][k]
+                                    image = self.data[i][j][0]
+                                    target = self.data[i][j][1]
+                                    img.append(image[patch[0]:patch[0]+self.patch_size[0], 
+                                                     patch[1]:patch[1]+self.patch_size[1], 
+                                                     patch[2]:patch[2]+self.patch_size[2]])
+                                    tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
+                                                     patch[1]:patch[1]+self.patch_size[1], 
+                                                     patch[2]:patch[2]+self.patch_size[2]])
+                                    start -= 1
+                                    if (start == 0):
+                                        return np.expand_dims(img, axis=1), np.expand_dims(tar, axis=1)
 
-    def __getitem__(self, index):
-        'Generate one batch of data'
-        # Generate indexes of the batch
-        indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
+                else:
+                    if self.isTrain:
+                        if start > self.patch_index[i][j].shape[0]:
+                            start -= self.patch_index[i][j].shape[0]
+                        else:
+                            # generate
+                            if first_iter:
+                                # first iter: append from start
+                                start_iter = start
+                                first_iter = False
+                                for k in range(start_iter, self.patch_index[i][j].shape[0]):
+                                    patch = self.patch_index[i][j][k]
+                                    image = self.data[i][j][0]
+                                    target = self.data[i][j][1]
+                                    img.append(image[patch[0]:patch[0]+self.patch_size[0], 
+                                                     patch[1]:patch[1]+self.patch_size[1], 
+                                                     patch[2]:patch[2]+self.patch_size[2]])
+                                    tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
+                                                     patch[1]:patch[1]+self.patch_size[1], 
+                                                     patch[2]:patch[2]+self.patch_size[2]])
+                                    start -= 1
+                                    if (start == 0):
+                                        return np.expand_dims(img, axis=1), np.expand_dims(tar, axis=1)
+                            else:
+                                # append from first patch for current image
+                                for k in range(self.patch_index[i][j].shape[0]):
+                                    patch = self.patch_index[i][j][k]
+                                    image = self.data[i][j][0]
+                                    target = self.data[i][j][1]
+                                    img.append(image[patch[0]:patch[0]+self.patch_size[0], 
+                                                     patch[1]:patch[1]+self.patch_size[1], 
+                                                     patch[2]:patch[2]+self.patch_size[2]])
+                                    tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
+                                                     patch[1]:patch[1]+self.patch_size[1], 
+                                                     patch[2]:patch[2]+self.patch_size[2]])
+                                    start -= 1
+                                    if (start == 0):
+                                        return np.expand_dims(img, axis=1), np.expand_dims(tar, axis=1)
+                    else:
+                        continue
 
-        # Find list of IDs
-        list_IDs_temp = [self.list_IDs[k] for k in indexes]
-
-        # Generate data
-        X, y = self.__data_generation(list_IDs_temp)
-
-        return X, y
-
-    def on_epoch_end(self):
-        'Updates indexes after each epoch'
-        self.indexes = np.arange(len(self.list_IDs))
-        if self.shuffle == True:
-            np.random.shuffle(self.indexes)
-
-    def __data_generation(self, list_IDs_temp):
-        'Generates data containing batch_size samples' # X : (n_samples, *dim, n_channels)
-        # Initialization
-        X = np.empty((self.batch_size, *self.dim, self.n_channels))
-        y = np.empty((self.batch_size), dtype=int)
-
-        # Generate data
-        for i, ID in enumerate(list_IDs_temp):
-            # Store sample
-            X[i,] = np.load('data/' + ID + '.npy')
-
-            # Store class
-            y[i] = self.labels[ID]
-
-        return X, keras.utils.to_categorical(y, num_classes=self.n_classes)
