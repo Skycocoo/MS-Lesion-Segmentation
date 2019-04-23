@@ -252,6 +252,7 @@ class DataGenerator(keras.utils.Sequence):
             
     def __getitem__(self, batch_index):
         start = batch_index * self.batch_size
+        num = self.batch_size
         first_iter = True
         img = []
         tar = []
@@ -283,8 +284,8 @@ class DataGenerator(keras.utils.Sequence):
                                     tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
                                                      patch[1]:patch[1]+self.patch_size[1], 
                                                      patch[2]:patch[2]+self.patch_size[2]])
-                                    start -= 1
-                                    if (start == 0):
+                                    num -= 1
+                                    if (num == 0):
                                         return np.expand_dims(img, axis=1), np.expand_dims(tar, axis=1)
                             else:
                                 # append from first patch for current image
@@ -298,8 +299,8 @@ class DataGenerator(keras.utils.Sequence):
                                     tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
                                                      patch[1]:patch[1]+self.patch_size[1], 
                                                      patch[2]:patch[2]+self.patch_size[2]])
-                                    start -= 1
-                                    if (start == 0):
+                                    num -= 1
+                                    if (num == 0):
                                         return np.expand_dims(img, axis=1), np.expand_dims(tar, axis=1)
 
                 else:
