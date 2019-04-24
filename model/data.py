@@ -108,7 +108,7 @@ class Data:
         for i in pad_file.keys():
             if i == "patch_size":
                 continue
-            self.data[i] = pad_file[i]
+            self.data[i] = pad_file[i][:]
     
     def load_data(self, patch_size=(32, 32, 32), 
                   pad_path="./model/h5df_data/pad_data.h5", raw_path="./model/h5df_data/raw_data.h5"):
@@ -119,7 +119,7 @@ class Data:
             if np.all(pad_file["patch_size"][:] == list(patch_size)):
                 # self.data = pad_file["pad_data"]
                 for i in pad_file.keys():
-                    self.data[i] = pad_file[i]
+                    self.data[i] = pad_file[i][:]
             else:
                 pad_file.close()
                 self.pad_raw_data(patch_size, pad_path, raw_path)
@@ -147,6 +147,7 @@ class Data:
             shape = self.data[i][0][0].shape
             patch_ind = []
             patch_num = [int((shape[i]-patch_size[i]) / patch_gap) for i in range(len(shape))]
+            # print(patch_num)
 
             # assume this is a 3d image
             for a in range(patch_num[0]):
@@ -172,7 +173,7 @@ class Data:
         for i in index_file.keys():
             if i == "count" or i == "patch_size" or i == "patch_gap":
                 continue
-            self.patch_index[i] = index_file[i]
+            self.patch_index[i] = index_file[i][:]
         # return the total number of patches
         return index_file["count"][()]
 
@@ -182,7 +183,9 @@ class Data:
             # print(list(pat_ind.keys()))
             if (np.all(index_file["patch_size"][:] == list(patch_size))) and (index_file["patch_gap"][()] == patch_gap):
                 for i in index_file.keys():
-                    self.patch_index[i] = index_file[i]
+                    if i == "count" or i == "patch_size" or i == "patch_gap":
+                        continue
+                    self.patch_index[i] = index_file[i][:]
                 return index_file["count"][()]
             else:
                 index_file.close()
@@ -224,30 +227,34 @@ class DataGenerator(keras.utils.Sequence):
         self.valid_index = valid_ind
         self.isTrain = is_train
         self.fold_index = None
+        self.len = None
         
     def set_index(self, index):
         self.fold_index = index
         
     def __len__(self):
-        # count the total number of patches
-        count = 0
-        for i in self.patch_index:
-            if i == "count" or i == "patch_size" or i == "patch_gap":
-                continue
-            unit = self.patch_index[i].shape[0] // self.kfold
-            for j in range(self.patch_index[i].shape[0]):
-                # print(j)
-                if j >= self.valid_index[i][self.fold_index] * unit and j < (self.valid_index[i][self.fold_index]+1) * unit:
-                    if self.isTrain:
-                        continue
+        if self.len == None:
+            # count the total number of patches
+            count = 0
+            for i in self.patch_index:
+                if i == "count" or i == "patch_size" or i == "patch_gap":
+                    continue
+                unit = self.patch_index[i].shape[0] // self.kfold
+                iter_start = self.valid_index[i][self.fold_index] * unit
+                iter_end = (self.valid_index[i][self.fold_index]+1) * unit
+                for j in range(self.patch_index[i].shape[0]):
+                    if j >= iter_start and j < iter_end:
+                        if self.isTrain:
+                            continue
+                        else:
+                            count += self.patch_index[i][j].shape[0]
                     else:
-                        count += self.patch_index[i][j].shape[0]
-                else:
-                    if self.isTrain:
-                        count += self.patch_index[i][j].shape[0]
-                    else:
-                        continue
-        return count // self.batch_size
+                        if self.isTrain:
+                            count += self.patch_index[i][j].shape[0]
+                        else:
+                            continue
+            self.len = count // self.batch_size
+        return self.len
     
             
     def __getitem__(self, batch_index):
@@ -261,8 +268,10 @@ class DataGenerator(keras.utils.Sequence):
             if i == "count" or i == "patch_size" or i == "patch_gap":
                 continue
             unit = self.data[i].shape[0] // self.kfold
+            iter_start = self.valid_index[i][self.fold_index] * unit
+            iter_end = (self.valid_index[i][self.fold_index]+1) * unit
             for j in range(self.patch_index[i].shape[0]):
-                if j >= self.valid_index[i][self.fold_index] * unit and j < (self.valid_index[i][self.fold_index]+1) * unit:
+                if j >= iter_start and j < iter_end:
                     if self.isTrain:
                         continue
                     else:
@@ -323,8 +332,8 @@ class DataGenerator(keras.utils.Sequence):
                                     tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
                                                      patch[1]:patch[1]+self.patch_size[1], 
                                                      patch[2]:patch[2]+self.patch_size[2]])
-                                    start -= 1
-                                    if (start == 0):
+                                    num -= 1
+                                    if (num == 0):
                                         return np.expand_dims(img, axis=1), np.expand_dims(tar, axis=1)
                             else:
                                 # append from first patch for current image
@@ -338,8 +347,8 @@ class DataGenerator(keras.utils.Sequence):
                                     tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
                                                      patch[1]:patch[1]+self.patch_size[1], 
                                                      patch[2]:patch[2]+self.patch_size[2]])
-                                    start -= 1
-                                    if (start == 0):
+                                    num -= 1
+                                    if (num == 0):
                                         return np.expand_dims(img, axis=1), np.expand_dims(tar, axis=1)
                     else:
                         continue
