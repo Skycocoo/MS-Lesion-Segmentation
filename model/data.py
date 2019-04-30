@@ -141,24 +141,35 @@ class Data:
     def gen_patch_index(self, patch_size, patch_gap, index_path):
         count = 0
         patch_index = defaultdict(list)
+        # https://arxiv.org/pdf/1710.02316.pdf
+        # at least 0.01% voxels contain lesions
+        voxel = int(patch_size[0]*patch_size[1]*patch_size[2]*0.0001)
+        
         for i in self.data:
             if i == "patch_size":
                 continue
             shape = self.data[i][0][0].shape
-            patch_ind = []
             patch_num = [int((shape[i]-patch_size[i]) / patch_gap) for i in range(len(shape))]
-            # print(patch_num)
 
-            # assume this is a 3d image
-            for a in range(patch_num[0]):
-                for b in range(patch_num[1]):
-                    for c in range(patch_num[2]):
-                        patch_ind.append([a * patch_gap, b * patch_gap, c * patch_gap])
-            # self.patch_index[i] = patch_ind
-            patch_index[i] = [np.copy(patch_ind) for _ in range(self.data[i].shape[0])]
+            for j in range(self.data[i].shape[0]):
+                patch_ind = []
+                # assume this is a 3d image
+                for a in range(patch_num[0]):
+                    for b in range(patch_num[1]):
+                        for c in range(patch_num[2]):
+                            patch_iter = [a * patch_gap, b * patch_gap, c * patch_gap, 1]
+                            if (np.sum(self.data[i][j][1][patch_iter[0]:patch_iter[0] + patch_size[0],
+                                                          patch_iter[1]:patch_iter[1] + patch_size[1],
+                                                          patch_iter[2]:patch_iter[2] + patch_size[2]]) <= voxel):
+                                # 0: does not satisfy, need to skip when generating
+                                patch_iter[3] = 0
+                            patch_ind.append(patch_iter)
+                patch_index[i].append(patch_ind)
+            
             for c in range(len(patch_index[i])):
                 # in-place shuffle
                 np.random.shuffle(patch_index[i][c])
+
             # total number of patches for this shape
             count += len(patch_ind) * self.data[i].shape[0]
         
@@ -285,30 +296,32 @@ class DataGenerator(keras.utils.Sequence):
                                 first_iter = False
                                 for k in range(start_iter, self.patch_index[i][j].shape[0]):
                                     patch = self.patch_index[i][j][k]
-                                    image = self.data[i][j][0]
-                                    target = self.data[i][j][1]
-                                    img.append(image[patch[0]:patch[0]+self.patch_size[0], 
-                                                     patch[1]:patch[1]+self.patch_size[1], 
-                                                     patch[2]:patch[2]+self.patch_size[2]])
-                                    tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
-                                                     patch[1]:patch[1]+self.patch_size[1], 
-                                                     patch[2]:patch[2]+self.patch_size[2]])
-                                    num -= 1
+                                    if (patch[3] == 1):
+                                        image = self.data[i][j][0]
+                                        target = self.data[i][j][1]
+                                        img.append(image[patch[0]:patch[0]+self.patch_size[0], 
+                                                         patch[1]:patch[1]+self.patch_size[1], 
+                                                         patch[2]:patch[2]+self.patch_size[2]])
+                                        tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
+                                                         patch[1]:patch[1]+self.patch_size[1], 
+                                                         patch[2]:patch[2]+self.patch_size[2]])
+                                        num -= 1
                                     if (num == 0):
                                         return np.expand_dims(img, axis=1), np.expand_dims(tar, axis=1)
                             else:
                                 # append from first patch for current image
                                 for k in range(self.patch_index[i][j].shape[0]):
                                     patch = self.patch_index[i][j][k]
-                                    image = self.data[i][j][0]
-                                    target = self.data[i][j][1]
-                                    img.append(image[patch[0]:patch[0]+self.patch_size[0], 
-                                                     patch[1]:patch[1]+self.patch_size[1], 
-                                                     patch[2]:patch[2]+self.patch_size[2]])
-                                    tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
-                                                     patch[1]:patch[1]+self.patch_size[1], 
-                                                     patch[2]:patch[2]+self.patch_size[2]])
-                                    num -= 1
+                                    if (patch[3] == 1):
+                                        image = self.data[i][j][0]
+                                        target = self.data[i][j][1]
+                                        img.append(image[patch[0]:patch[0]+self.patch_size[0], 
+                                                         patch[1]:patch[1]+self.patch_size[1], 
+                                                         patch[2]:patch[2]+self.patch_size[2]])
+                                        tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
+                                                         patch[1]:patch[1]+self.patch_size[1], 
+                                                         patch[2]:patch[2]+self.patch_size[2]])
+                                        num -= 1
                                     if (num == 0):
                                         return np.expand_dims(img, axis=1), np.expand_dims(tar, axis=1)
 
@@ -324,30 +337,32 @@ class DataGenerator(keras.utils.Sequence):
                                 first_iter = False
                                 for k in range(start_iter, self.patch_index[i][j].shape[0]):
                                     patch = self.patch_index[i][j][k]
-                                    image = self.data[i][j][0]
-                                    target = self.data[i][j][1]
-                                    img.append(image[patch[0]:patch[0]+self.patch_size[0], 
-                                                     patch[1]:patch[1]+self.patch_size[1], 
-                                                     patch[2]:patch[2]+self.patch_size[2]])
-                                    tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
-                                                     patch[1]:patch[1]+self.patch_size[1], 
-                                                     patch[2]:patch[2]+self.patch_size[2]])
-                                    num -= 1
+                                    if (patch[3] == 1):
+                                        image = self.data[i][j][0]
+                                        target = self.data[i][j][1]
+                                        img.append(image[patch[0]:patch[0]+self.patch_size[0], 
+                                                         patch[1]:patch[1]+self.patch_size[1], 
+                                                         patch[2]:patch[2]+self.patch_size[2]])
+                                        tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
+                                                         patch[1]:patch[1]+self.patch_size[1], 
+                                                         patch[2]:patch[2]+self.patch_size[2]])
+                                        num -= 1
                                     if (num == 0):
                                         return np.expand_dims(img, axis=1), np.expand_dims(tar, axis=1)
                             else:
                                 # append from first patch for current image
                                 for k in range(self.patch_index[i][j].shape[0]):
                                     patch = self.patch_index[i][j][k]
-                                    image = self.data[i][j][0]
-                                    target = self.data[i][j][1]
-                                    img.append(image[patch[0]:patch[0]+self.patch_size[0], 
-                                                     patch[1]:patch[1]+self.patch_size[1], 
-                                                     patch[2]:patch[2]+self.patch_size[2]])
-                                    tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
-                                                     patch[1]:patch[1]+self.patch_size[1], 
-                                                     patch[2]:patch[2]+self.patch_size[2]])
-                                    num -= 1
+                                    if (patch[3] == 1):
+                                        image = self.data[i][j][0]
+                                        target = self.data[i][j][1]
+                                        img.append(image[patch[0]:patch[0]+self.patch_size[0], 
+                                                         patch[1]:patch[1]+self.patch_size[1], 
+                                                         patch[2]:patch[2]+self.patch_size[2]])
+                                        tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
+                                                         patch[1]:patch[1]+self.patch_size[1], 
+                                                         patch[2]:patch[2]+self.patch_size[2]])
+                                        num -= 1
                                     if (num == 0):
                                         return np.expand_dims(img, axis=1), np.expand_dims(tar, axis=1)
                     else:
