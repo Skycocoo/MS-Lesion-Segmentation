@@ -131,7 +131,13 @@ class Data:
         def show_frame(id):
             length = len(images)
             for i in range(length):
-                plt.subplot(1, length, i+1)
+                ax = plt.subplot(1, length, i+1)
+                if (i == 0):
+                    ax.set_title("Input")
+                if (i == 1):
+                    ax.set_title("Target")
+                if (i == 2):
+                    ax.set_title("Output")
                 plt.imshow(images[i][0, 0, id, :, :], cmap='gray')
         interact(show_frame, 
                  id=widgets.IntSlider(min=0, max=images[0].shape[2]-1, step=1, value=images[0].shape[2]/2))

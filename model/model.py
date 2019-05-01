@@ -68,8 +68,8 @@ def unet_model_3d(input_shape, pool_size=(2, 2, 2), initial_learning_rate=1e-4,
     if not isinstance(metrics, list):
         metrics = [metrics]
 
-    # model.compile(optimizer=Adam(lr=initial_learning_rate), loss=dice_coefficient_loss, metrics=metrics)
-    model.compile(optimizer=Adam(lr=initial_learning_rate), loss=keras.losses.binary_crossentropy, metrics=metrics)
+    model.compile(optimizer=Adam(lr=initial_learning_rate), loss=dice_coefficient_loss, metrics=metrics)
+#     model.compile(optimizer=Adam(lr=initial_learning_rate), loss=keras.losses.binary_crossentropy, metrics=metrics)
     return model
 
 

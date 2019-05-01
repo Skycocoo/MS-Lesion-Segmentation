@@ -55,7 +55,7 @@ def train(config, data, train_generator, valid_generator, train_num, valid_num):
                               depth=config["depth"],
                               n_base_filters=config["n_base_filters"])
         
-        model.load_weights(os.getcwd() + '/model/weight/weights-01-0.02-0428-binary-patch.hdf5')
+        # model.load_weights(os.getcwd() + '/model/weight/weights-01-0.02-0428-binary-patch.hdf5')
         
         # print(model.summary())
         
