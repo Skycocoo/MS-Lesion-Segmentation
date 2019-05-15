@@ -19,7 +19,7 @@ config["patience"] = 10  # learning rate will be reduced after this many epochs 
 config["early_stop"] = 10  # training will be stopped after this many epochs without the validation loss improving
 config["initial_learning_rate"] = 0.00001
 config["learning_rate_drop"] = 0.5  # factor by which the learning rate will be reduced
-config["n_epochs"] = 10
+config["n_epochs"] = 3
 
 from model.data import *
 from model.model import *
@@ -72,6 +72,6 @@ def train(config, data, train_generator, valid_generator, train_num, valid_num):
                             validation_steps=valid_num,
                             callbacks=callbacks,
                             workers=2,
-                            verbose=1)
-        break
+                            verbose=0)
+#         break
 train(config, d, train_generator, valid_generator, train_num, valid_num)
