@@ -1,3 +1,10 @@
+## Notes
+
+- 1208110: binary cross entropy
+- 1215762: merge image with softmax weight
+- 1216205: dice, train on all patches (with / without lesion)
+
+
 ## Todo
 
 - V-net (3D) / U-net (2D)

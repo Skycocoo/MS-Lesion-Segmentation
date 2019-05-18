@@ -22,6 +22,7 @@ config["learning_rate_drop"] = 0.5  # factor by which the learning rate will be 
 config["n_epochs"] = 10
 
 from model.data import *
+from model.generator import *
 from model.dice import *
 # from model.model import *
 
@@ -66,21 +67,19 @@ def unet_model_3d(input_shape, pool_size=(2, 2, 2), initial_learning_rate=1e-4,
     for layer_depth in range(depth):
         layer1 = create_convolution_block(input_layer=current_layer, n_filters=n_base_filters*(2**layer_depth),
                                           batch_normalization=batch_normalization)
-        layer2 = create_convolution_block(input_layer=layer1, n_filters=n_base_filters*(2**layer_depth),
+        layer2 = create_convolution_block(input_layer=layer1, n_filters=n_base_filters*(2**layer_depth)*2,
                                           batch_normalization=batch_normalization)
         if layer_depth < depth - 1:
             current_layer = MaxPooling3D(pool_size=pool_size)(layer2)
             levels.append([layer1, layer2, current_layer])
         else:
-            current_layer = MaxPooling3D(pool_size=pool_size)(layer2)
-            current_layer = create_convolution_block(input_layer=current_layer, n_filters=n_base_filters*(2**layer_depth)*2, batch_normalization=batch_normalization)
-            current_layer = create_convolution_block(input_layer=current_layer, n_filters=n_base_filters*(2**layer_depth)*2, batch_normalization=batch_normalization)
+            current_layer = layer2
             levels.append([layer1, layer2])
 
     # add levels with up-convolution or up-sampling
-    for layer_depth in range(depth-1, -1, -1):
+    for layer_depth in range(depth-2, -1, -1):
         up_convolution = get_up_convolution(pool_size=pool_size, deconvolution=deconvolution,
-                                            n_filters=int(current_layer._keras_shape[1]/2))(current_layer)
+                                            n_filters=current_layer._keras_shape[1])(current_layer)
         concat = concatenate([up_convolution, levels[layer_depth][1]], axis=1)
         current_layer = create_convolution_block(n_filters=levels[layer_depth][1]._keras_shape[1],
                                                  input_layer=concat, batch_normalization=batch_normalization)
@@ -149,10 +148,10 @@ def get_up_convolution(n_filters, pool_size, kernel_size=(2, 2, 2), strides=(2, 
         return UpSampling3D(size=pool_size)
 
 
-def get_callbacks(file_path, fold, initial_learning_rate=0.0001, learning_rate_drop=0.5,
+def get_callbacks(file_path, file, initial_learning_rate=0.0001, learning_rate_drop=0.5,
                   learning_rate_patience=50, verbosity=1, early_stopping_patience=None):
     
-    check_point = ModelCheckpoint(file_path + '/fold-' + fold + '-weights-{epoch:02d}-{val_loss:.2f}.hdf5', save_best_only=False)
+    check_point = ModelCheckpoint(file_path + '/fold' + file + 'weights-{epoch:02d}-{val_loss:.2f}.hdf5', save_best_only=False)
     csv_log = CSVLogger(file_path + '/training-log.csv', append=True)
     
     # potential problem of recude learning rate: https://github.com/keras-team/keras/issues/10924
@@ -197,8 +196,6 @@ def train_model(model, model_file, training_generator, validation_generator, ste
                         validation_steps=validation_steps,
                         callbacks=callbacks)
 
-    
-
 d = Data()
 d.load_data(config["patch_size"])
 
@@ -232,9 +229,9 @@ def train(config, data, train_generator, valid_generator, train_num, valid_num):
         
         # model.load_weights(os.getcwd() + '/model/weight/weights-01-0.02-0428-binary-patch.hdf5')
         
-        # print(model.summary())
+#         print(model.summary())
         
-        callbacks = get_callbacks(config["weights_file"], 'binary'+str(i),
+        callbacks = get_callbacks(config["weights_file"], '_binary'+str(i),
                                 initial_learning_rate=config["initial_learning_rate"],
                                 learning_rate_drop=config["learning_rate_drop"],
                                 learning_rate_patience=config["patience"],
@@ -247,6 +244,6 @@ def train(config, data, train_generator, valid_generator, train_num, valid_num):
                             validation_steps=valid_num,
                             callbacks=callbacks,
                             workers=2,
-                            verbose=0)
+                            verbose=1)
         break
 train(config, d, train_generator, valid_generator, train_num, valid_num)

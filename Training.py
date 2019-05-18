@@ -22,6 +22,7 @@ config["learning_rate_drop"] = 0.5  # factor by which the learning rate will be 
 config["n_epochs"] = 10
 
 from model.data import *
+from model.generator import *
 from model.model import *
 
 d = Data()
@@ -37,6 +38,9 @@ valid_generator = DataGenerator(d.data, d.patch_index, d.kfold, d.batch_size,
 result = []
 target = []
 image = []
+
+print("training selected patch; dice score loss")
+
 
 def train(config, data, train_generator, valid_generator, train_num, valid_num):
 #     models = []
@@ -59,7 +63,7 @@ def train(config, data, train_generator, valid_generator, train_num, valid_num):
         
         # print(model.summary())
         
-        callbacks = get_callbacks(config["weights_file"], str(i),
+        callbacks = get_callbacks(config["weights_file"], str(i)+'_',
                                 initial_learning_rate=config["initial_learning_rate"],
                                 learning_rate_drop=config["learning_rate_drop"],
                                 learning_rate_patience=config["patience"],

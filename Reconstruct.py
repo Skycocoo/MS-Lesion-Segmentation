@@ -41,20 +41,13 @@ model = unet_model_3d(input_shape=config["input_shape"],
                               depth=config["depth"],
                               n_base_filters=config["n_base_filters"])
 
-# model.load_weights(os.getcwd() + '/model/weight/weights-01-0.02-0428-binary-patch.hdf5')
-
-# 0,0.9986013862178413,0.00427185765564637,0.9978142036170056,0.017498897570287473
 model.load_weights(os.getcwd() + '/model/weight/fold-0-weights-04-0.34.hdf5')
-# model.load_weights(os.getcwd() + '/model/weight/dice/weights-03-0.31.hdf5')
-# model.load_weights(os.getcwd() + '/model/weight/binary/weights-01-0.02.hdf5')
 
-    
-result = []
 fold_index = 0
 
 for i in d.valid_index:
     j = d.valid_index[i][fold_index]
-    recons = Reconstruct(j, d.data[i][j][0].shape)
+    recons = Reconstruct(j, d.data[i][j][0].shape, config["patch_size"])
     print(i, d.patch_index[i][j].shape[0])
     for ind in range(d.patch_index[i][j].shape[0]):
         index = d.patch_index[i][j][ind]
@@ -63,5 +56,18 @@ for i in d.valid_index:
                          index[1]:index[1]+d.patch_size[1], 
                          index[2]:index[2]+d.patch_size[2]], axis=0)
         recons.add(model.predict([image_i[None, :]]), index)
-    recons.store()
-#     result.append(copy.deepcopy(recons))
+    recons.store("dice_softmax_circle")
+
+# model.load_weights(os.getcwd() + '/model/weight/fold-binary0-weights-06-0.02.hdf5')
+#for i in d.valid_index:
+#    j = d.valid_index[i][fold_index]
+#    recons = Reconstruct(j, d.data[i][j][0].shape, config["patch_size"])
+#    print(i, d.patch_index[i][j].shape[0])
+#    for ind in range(d.patch_index[i][j].shape[0]):
+#        index = d.patch_index[i][j][ind]
+#        image_i = np.expand_dims(d.data[i][j][0][
+#                         index[0]:index[0]+d.patch_size[0], 
+#                         index[1]:index[1]+d.patch_size[1], 
+#                         index[2]:index[2]+d.patch_size[2]], axis=0)
+#        recons.add(model.predict([image_i[None, :]]), index)
+#    recons.store("binary_softmax_circle")

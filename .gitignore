@@ -9,6 +9,7 @@
 *.csv
 *.nii
 
+result/
 data/
 sampleCode/
 .ipynb_checkpoints/
