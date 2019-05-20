@@ -8,6 +8,7 @@
 *.hdf5
 *.csv
 *.nii
+*.nii.gz
 
 result/
 data/
