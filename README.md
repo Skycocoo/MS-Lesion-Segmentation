@@ -1,25 +1,9 @@
 ## Notes
 
-- 1208110: binary cross entropy
-- 1215762: merge image with softmax weight
-- 1216205: dice, train on all patches (with / without lesion)
+- Training.py: Training with Dice Loss
+- Training-binary.py: Training with Binary Cross Entropy
+- Data sources: https://portal.fli-iam.irisa.fr/msseg-challenge/data
 
-
-## Todo
-
-- V-net (3D) / U-net (2D)
-- classify / cluster lesion (subtypes)
-
----
-
-- soft dice loss / hard dice loss
-- find more data to train
-
----
-
-- modify Data to fit keras [DataGenerator](https://stanford.edu/~shervine/blog/keras-how-to-generate-data-on-the-fly)
-- modify sbatch file for more training time
-- merge image directly instead of storing all patches first
 
 
 ## Notes
