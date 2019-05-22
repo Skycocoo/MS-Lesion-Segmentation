@@ -23,9 +23,6 @@ config["n_epochs"] = 1
 
 from model.data import *
 from model.model import *
-from model.recon import *
-
-print("Reconstruct:")
 
 d = Data()
 d.load_data(config["patch_size"])
@@ -33,41 +30,57 @@ d.load_data(config["patch_size"])
 # prepare data for training
 train_num, valid_num = d.prekfold(config["patch_size"], config["patch_gap"], config["batch_size"], config["kfold"])
 
+from model.recon import *
 
-model = unet_model_3d(input_shape=config["input_shape"],
-                              pool_size=config["pool_size"],
-                              initial_learning_rate=config["initial_learning_rate"],
-                              deconvolution=config["deconvolution"],
-                              depth=config["depth"],
-                              n_base_filters=config["n_base_filters"])
+weight_path = ['/model/weight/fold0_all_patch_weights-05-0.40.hdf5',
+               '/model/weight/fold0_weights-03-0.39.hdf5',
+               '/model/weight/fold_binary0weights-05-0.06.hdf5',
+              ]
+weight_name = ['all',
+               'normal',
+               'binary',
+              ]
 
-model.load_weights(os.getcwd() + '/model/weight/fold-0-weights-04-0.34.hdf5')
-
-fold_index = 0
-
-for i in d.valid_index:
-    j = d.valid_index[i][fold_index]
-    recons = Reconstruct(j, d.data[i][j][0].shape, config["patch_size"])
-    print(i, d.patch_index[i][j].shape[0])
-    for ind in range(d.patch_index[i][j].shape[0]):
-        index = d.patch_index[i][j][ind]
-        image_i = np.expand_dims(d.data[i][j][0][
-                         index[0]:index[0]+d.patch_size[0], 
-                         index[1]:index[1]+d.patch_size[1], 
-                         index[2]:index[2]+d.patch_size[2]], axis=0)
-        recons.add(model.predict([image_i[None, :]]), index)
-    recons.store("dice_softmax_circle")
-
-# model.load_weights(os.getcwd() + '/model/weight/fold-binary0-weights-06-0.02.hdf5')
-#for i in d.valid_index:
-#    j = d.valid_index[i][fold_index]
-#    recons = Reconstruct(j, d.data[i][j][0].shape, config["patch_size"])
-#    print(i, d.patch_index[i][j].shape[0])
-#    for ind in range(d.patch_index[i][j].shape[0]):
-#        index = d.patch_index[i][j][ind]
-#        image_i = np.expand_dims(d.data[i][j][0][
-#                         index[0]:index[0]+d.patch_size[0], 
-#                         index[1]:index[1]+d.patch_size[1], 
-#                         index[2]:index[2]+d.patch_size[2]], axis=0)
-#        recons.add(model.predict([image_i[None, :]]), index)
-#    recons.store("binary_softmax_circle")
+for i_weight in range(len(weight_path)):
+    print("loading weight: ", weight_name[i_weight])
+    model = unet_model_3d(input_shape=config["input_shape"],
+                                  pool_size=config["pool_size"],
+                                  initial_learning_rate=config["initial_learning_rate"],
+                                  deconvolution=config["deconvolution"],
+                                  depth=config["depth"],
+                                  n_base_filters=config["n_base_filters"])
+    model.load_weights(os.getcwd() + weight_path[i_weight]) 
+    
+    fold_index = 0
+    for i in d.valid_index:
+        j = d.valid_index[i][fold_index]
+        recons = Reconstruct(j, d.data[i][j][0].shape, config["patch_size"], True)
+        normal = Reconstruct(j, d.data[i][j][0].shape, config["patch_size"], False)
+        image = Reconstruct(j, d.data[i][j][0].shape, config["patch_size"], False)
+        target = Reconstruct(j, d.data[i][j][0].shape, config["patch_size"], False)
+        for ind in range(d.patch_index[i][j].shape[0]):
+            index = d.patch_index[i][j][ind]
+            image_i = np.expand_dims(d.data[i][j][0][
+                             index[0]:index[0]+d.patch_size[0], 
+                             index[1]:index[1]+d.patch_size[1], 
+                             index[2]:index[2]+d.patch_size[2]], axis=0)
+            target_i = np.expand_dims(d.data[i][j][1][
+                             index[0]:index[0]+d.patch_size[0], 
+                             index[1]:index[1]+d.patch_size[1], 
+                             index[2]:index[2]+d.patch_size[2]], axis=0)
+            result = model.predict([image_i[None, :]])
+            recons.add(result, index)
+            normal.add(result, index)
+            image.add(image_i, index)
+            target.add(target_i, index)
+#             break
+        dir_name = './model/h5df_data/recon/' + weight_name[i_weight] + '/'
+        os.makedirs(os.path.dirname(dir_name), exist_ok=True)
+        file_name = '/recon/' + weight_name[i_weight] + '/'+ str(d.data[i][j][0].shape)
+        recons.store(file_name + '_weighted_output')
+        normal.store(file_name + "_uniform_output")
+        image.store(file_name + "_input")
+        target.store(file_name + "_target")
+#         break
+#         recon.append(recons)
+#         normal.append(orig)
