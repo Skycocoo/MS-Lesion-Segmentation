@@ -13,9 +13,11 @@
 result/
 data/
 sampleCode/
+document/*
 .ipynb_checkpoints/
 __pycache__/
 
 
-!Yuxi_MS_lesion_segmentation_presentation.pdf
-
+!document/MSSEG2016.md
+!document/Yuxi_MS_lesion_segmentation_presentation.pdf
+!document/Yuxi_MS_lesion_segmentation_report.pdf

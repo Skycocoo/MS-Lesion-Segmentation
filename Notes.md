@@ -16,6 +16,10 @@ Use tensorflow-gpu 1.12.0 + cuda 9 + cudnn 7:
 - batch size 4: OOM error due to allocating tensors
 - batch size 1: failed to get convolution algorithm; load runtime cudnn library: 7.0.5, but source was compiled with: 7.1.4
 
+==> should check the package from terminal provided by GPU server (use jupyternotebook)
+==> should use tenforlow-gpu 1.12.0
+
+---
 
 Use tensorflow-gpu 1.13.0 + cuda 10 + cudnn 7.4:
 
@@ -65,6 +69,8 @@ $ squeue -u [net_id]
 $ scancel [job_number]
 ```
 
+---
+
 Using anaconda to install virtual environment:
 
 ```shell
@@ -95,9 +101,9 @@ $ pip3 install -I jupyter
 # source ~/[nameofenv]/py3.6.3/bin/activate
 ```
 
+## Sbatch setup
 
-
-## original sbatch files
+### Original sbatch files
 
 ```
 #!/bin/bash
@@ -157,5 +163,24 @@ fi
 
 jupyter notebook --no-browser --port $port --notebook-dir=$(pwd)
 
+
+```
+
+### Current sbatch setup
+
+```
+#!/bin/bash
+
+#SBATCH --job-name=jupyterTest2
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=64GB
+#SBATCH --time=24:00:00
+#SBATCH --gres=gpu:p40:1
+
+source ~/.bashrc
+module purge
+module load cuda/9.0.176 cudnn/9.0v7.0.5
+conda activate mscond
 
 ```
