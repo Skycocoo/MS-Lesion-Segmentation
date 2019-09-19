@@ -68,8 +68,8 @@ def unet_model_3d(input_shape, pool_size=(2, 2, 2), initial_learning_rate=1e-4,
     if not isinstance(metrics, list):
         metrics = [metrics]
 
-    model.compile(optimizer=Adam(lr=initial_learning_rate), loss=dice_coefficient_loss, metrics=metrics)
-#     model.compile(optimizer=Adam(lr=initial_learning_rate), loss=keras.losses.binary_crossentropy, metrics=metrics)
+    # model.compile(optimizer=Adam(lr=initial_learning_rate), loss=dice_coefficient_loss, metrics=metrics)
+    model.compile(optimizer=Adam(lr=initial_learning_rate), loss=keras.losses.binary_crossentropy, metrics=metrics)
     return model
 
 
@@ -123,10 +123,10 @@ def get_up_convolution(n_filters, pool_size, kernel_size=(2, 2, 2), strides=(2, 
 
 def get_callbacks(file_path, file, initial_learning_rate=0.0001, learning_rate_drop=0.5,
                   learning_rate_patience=50, verbosity=1, early_stopping_patience=None):
-    
+
     check_point = ModelCheckpoint(file_path + '/fold' + file + 'weights-{epoch:02d}-{val_loss:.2f}.hdf5', save_best_only=False)
     csv_log = CSVLogger(file_path + '/training-log.csv', append=True)
-    
+
     # potential problem of recude learning rate: https://github.com/keras-team/keras/issues/10924
     reduce = ReduceLROnPlateau(factor=learning_rate_drop, patience=learning_rate_patience, verbose=verbosity)
     if early_stopping_patience:
@@ -154,7 +154,7 @@ def train_model(model, model_file, training_generator, validation_generator, ste
     :param initial_learning_rate: Learning rate at the beginning of training.
     :param learning_rate_drop: How much at which to the learning rate will decay.
     :param n_epochs: Total number of epochs to train the model.
-    :return: 
+    :return:
     """
     callbacks = get_callbacks(model_file,
                             initial_learning_rate=initial_learning_rate,

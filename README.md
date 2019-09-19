@@ -1,22 +1,32 @@
 ## Notes
 
+### Data
+
+https://portal.fli-iam.irisa.fr/msseg-challenge/data
+
+### File details
+
+#### ./
+
+- [useful] MS_segmentation.ipynb: actual training code (for testing purpose)
+- [useful] Post_processing.ipynb: reconstruct patches into original images, and store the results
+
+- Test_reconstruct.ipynb: previous Reconstruct file (extracted to class)
+- Test_weight_merge.ipynb: test the idea of weighted reconstruct
+- Test_weight_patch.ipynb: test original reconstruct algo
+- Demonstrate_result.ipynb: plot training results vs ground truth on testing data
+- Format_report.ipynb: format the structure of the network for latex report
+- Test_data.ipynb: test the shape of data
+
+
 - Training.py: Training with Dice Loss
 - Training-binary.py: Training with Binary Cross Entropy
-- Data sources: https://portal.fli-iam.irisa.fr/msseg-challenge/data
+- Training-all.py: Training with all data (not selected)
 
+#### ./model/
 
-
-## Notes
-
-- [input with variable shape](https://github.com/keras-team/keras/issues/1920)
-
-- [train on batches](https://github.com/keras-team/keras/issues/68)
-
-```py
-# each batch would be expected to have different sizes for MSSEG
-# Alternatively, without data augmentation / normalization:
-for e in range(nb_epoch):
-    print("epoch %d" % e)
-    for X_train, Y_train in ImageNet(): # these are chunks of ~10k pictures
-        model.fit(X_batch, Y_batch, batch_size=32, nb_epoch=1)
-```
+- data.py: fetch data into h5 format, preprocess data for training (padding, patch index, etc.), load data from h5 file
+- dice.py: dice score calculation function
+- generator.py: generate patches for training (different for training / testing dataset)
+- model.py: 3D U-Net model structure setup (Keras)
+- recon.py: reconstruct patches to original image shape (each instance: corresponds to one original image shape); 5 K-fold, 15 images, testing images: 3 (or else storing need additional counter)
