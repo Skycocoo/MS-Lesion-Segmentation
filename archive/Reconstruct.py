@@ -32,13 +32,9 @@ train_num, valid_num = d.prekfold(config["patch_size"], config["patch_gap"], con
 
 from model.recon import *
 
-weight_path = ['/model/weight/fold0_all_patch_weights-05-0.40.hdf5',
-               '/model/weight/fold0_weights-03-0.39.hdf5',
-               '/model/weight/fold_binary0weights-05-0.06.hdf5',
+weight_path = ['/model/weight/fold0_weights-04-0.02.hdf5',
               ]
-weight_name = ['all',
-               'normal',
-               'binary',
+weight_name = ['binary',
               ]
 
 for i_weight in range(len(weight_path)):
@@ -54,7 +50,7 @@ for i_weight in range(len(weight_path)):
     fold_index = 0
     for i in d.valid_index:
         j = d.valid_index[i][fold_index]
-        recons = Reconstruct(j, d.data[i][j][0].shape, config["patch_size"], True)
+#         recons = Reconstruct(j, d.data[i][j][0].shape, config["patch_size"], True)
         normal = Reconstruct(j, d.data[i][j][0].shape, config["patch_size"], False)
         image = Reconstruct(j, d.data[i][j][0].shape, config["patch_size"], False)
         target = Reconstruct(j, d.data[i][j][0].shape, config["patch_size"], False)
@@ -69,7 +65,7 @@ for i_weight in range(len(weight_path)):
                              index[1]:index[1]+d.patch_size[1], 
                              index[2]:index[2]+d.patch_size[2]], axis=0)
             result = model.predict([image_i[None, :]])
-            recons.add(result, index)
+#             recons.add(result, index)
             normal.add(result, index)
             image.add(image_i, index)
             target.add(target_i, index)
@@ -77,7 +73,7 @@ for i_weight in range(len(weight_path)):
         dir_name = './model/h5df_data/recon/' + weight_name[i_weight] + '/'
         os.makedirs(os.path.dirname(dir_name), exist_ok=True)
         file_name = '/recon/' + weight_name[i_weight] + '/'+ str(d.data[i][j][0].shape)
-        recons.store(file_name + '_weighted_output')
+#         recons.store(file_name + '_weighted_output')
         normal.store(file_name + "_uniform_output")
         image.store(file_name + "_input")
         target.store(file_name + "_target")

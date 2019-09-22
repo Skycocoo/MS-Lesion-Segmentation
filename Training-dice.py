@@ -95,8 +95,8 @@ def unet_model_3d(input_shape, pool_size=(2, 2, 2), initial_learning_rate=1e-4,
     if not isinstance(metrics, list):
         metrics = [metrics]
 
-#     model.compile(optimizer=Adam(lr=initial_learning_rate), loss=dice_coefficient_loss, metrics=metrics)
-    model.compile(optimizer=Adam(lr=initial_learning_rate), loss=keras.losses.binary_crossentropy, metrics=metrics)
+    model.compile(optimizer=Adam(lr=initial_learning_rate), loss=dice_coefficient_loss, metrics=metrics)
+#     model.compile(optimizer=Adam(lr=initial_learning_rate), loss=keras.losses.binary_crossentropy, metrics=metrics)
     return model
 
 
@@ -210,6 +210,9 @@ result = []
 target = []
 image = []
 
+print("training selected patch; dice loss")
+
+
 def train(config, data, train_generator, valid_generator, train_num, valid_num):
 #     models = []
     print(train_num, valid_num)
@@ -231,7 +234,7 @@ def train(config, data, train_generator, valid_generator, train_num, valid_num):
         
 #         print(model.summary())
         
-        callbacks = get_callbacks(config["weights_file"], '_binary'+str(i),
+        callbacks = get_callbacks(config["weights_file"], '_dice_'+str(i),
                                 initial_learning_rate=config["initial_learning_rate"],
                                 learning_rate_drop=config["learning_rate_drop"],
                                 learning_rate_patience=config["patience"],

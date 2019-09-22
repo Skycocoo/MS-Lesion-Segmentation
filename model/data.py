@@ -25,7 +25,8 @@ class Data:
         self.patch_gap = None
         self.patch_index = defaultdict(list)
         self.valid_index = {}
-        random.seed(datetime.now())
+        # pre-set seed so that reconstruct can retrieve valid_index for final result
+        random.seed(3000)
         
     def fetch_raw_data(self, raw_path):
         def fetch_file():

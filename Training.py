@@ -39,7 +39,7 @@ result = []
 target = []
 image = []
 
-print("training selected patch; dice score loss")
+print("training selected patch; binary cross entropy loss")
 
 
 def train(config, data, train_generator, valid_generator, train_num, valid_num):

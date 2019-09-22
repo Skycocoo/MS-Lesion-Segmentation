@@ -98,37 +98,42 @@ Batch size 4096, # epochs 50, adam optimization
 
 ## Team Ranking
 
-Segmentation Ranking: (Dice Score & Surface Distance)
-
 - Team 6 (convolutional autoencoder)
-- Team 8
 - Team 12 (convolutional neural network)
-- Team 13
-- Team 4
-- Team 2
-- Team 3
-- Team 1
-- Team 5
-- Team 11
-- Team 9
-- Team 7
-- Team 10
+
+---
+
+Segmentation Ranking: (Dice Score & Surface Distance)
+-	Team 6	0.591
+-	Team 8	0.572
+-	Team 12	0.541
+-	Team 13	0.521
+-	Team 4	0.490
+-	Team 2	0.485
+-	Team 3	0.489
+-	Team 1	0.453
+-	Team 5	0.430
+-	Team 11	0.347
+-	Team 9	0.340
+-	Team 7	0.341
+-	Team 10	0.228
 
 Lesion Detection Ranking: (F1 Score)
 
-- Team 12 (convolutional neural network)
-- Team 8
-- Team 13
-- Team 6 (convolutional autoencoder)
-- Team 3
-- Team 1
-- Team 2
-- Team 4
-- Team 11
-- Team 5
-- Team 9
-- Team 7
-- Team 10
+-	Team 12	0.490
+-	Team 8	0.451
+-	Team 13	0.410
+-	Team 6	0.386
+-	Team 3	0.360
+-	Team 1	0.341
+-	Team 2	0.294
+-	Team 4	0.319
+-	Team 11	0.188
+-	Team 5	0.167
+-	Team 9	0.168
+-	Team 7	0.134
+-	Team 10	0.049
+
 
 ### Other Resources
 
