@@ -1,7 +1,7 @@
 import os
 os.chdir("/scratch/yl4217/MS-Lesion-Segmentation/")
-weight_path = ['/model/weight/fold0_weights-04-0.02.hdf5']
-weight_name = ['binary']
+weight_path = ['/model/weight/fold0_weights-03-0.38.hdf5']
+weight_name = ['dice']
 
 from model.data import *
 from model.model import *
@@ -34,6 +34,8 @@ config["n_epochs"] = 1
 
 d = Data()
 d.load_data(config["patch_size"])
+# set up valid index
+train_num, valid_num = d.prekfold(config["patch_size"], config["patch_gap"], config["batch_size"], config["kfold"])
 
 for i_weight in range(len(weight_path)):
     print("loading weight: ", weight_name[i_weight])

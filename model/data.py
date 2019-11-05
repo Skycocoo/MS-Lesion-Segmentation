@@ -51,7 +51,7 @@ class Data:
             # f.create_dataset("raw_data", data=raw_data)
             for i in raw_data:
                 f.create_dataset(str(i), data=raw_data[i])
-        return self.load_raw_data(raw)
+        return self.load_raw_data(raw_path)
     
     def load_raw_data(self, raw_path):
         raw_file = h5py.File(raw_path, 'r') # should not close it immediately
