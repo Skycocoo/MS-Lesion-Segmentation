@@ -75,32 +75,32 @@ class DataGenerator(keras.utils.Sequence):
                                 first_iter = False
                                 for k in range(start_iter, self.patch_index[i][j].shape[0]):
                                     patch = self.patch_index[i][j][k]
-                                    if (patch[3] == 1):
-                                        image = self.data[i][j][0]
-                                        target = self.data[i][j][1]
-                                        img.append(image[patch[0]:patch[0]+self.patch_size[0], 
-                                                         patch[1]:patch[1]+self.patch_size[1], 
-                                                         patch[2]:patch[2]+self.patch_size[2]])
-                                        tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
-                                                         patch[1]:patch[1]+self.patch_size[1], 
-                                                         patch[2]:patch[2]+self.patch_size[2]])
-                                        num -= 1
+#                                     if (patch[3] == 1): # should use all images for validation
+                                    image = self.data[i][j][0]
+                                    target = self.data[i][j][1]
+                                    img.append(image[patch[0]:patch[0]+self.patch_size[0], 
+                                                     patch[1]:patch[1]+self.patch_size[1], 
+                                                     patch[2]:patch[2]+self.patch_size[2]])
+                                    tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
+                                                     patch[1]:patch[1]+self.patch_size[1], 
+                                                     patch[2]:patch[2]+self.patch_size[2]])
+                                    num -= 1
                                     if (num == 0):
                                         return np.expand_dims(img, axis=1), np.expand_dims(tar, axis=1)
                             else:
                                 # append from first patch for current image
                                 for k in range(self.patch_index[i][j].shape[0]):
                                     patch = self.patch_index[i][j][k]
-                                    if (patch[3] == 1):
-                                        image = self.data[i][j][0]
-                                        target = self.data[i][j][1]
-                                        img.append(image[patch[0]:patch[0]+self.patch_size[0], 
-                                                         patch[1]:patch[1]+self.patch_size[1], 
-                                                         patch[2]:patch[2]+self.patch_size[2]])
-                                        tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
-                                                         patch[1]:patch[1]+self.patch_size[1], 
-                                                         patch[2]:patch[2]+self.patch_size[2]])
-                                        num -= 1
+#                                     if (patch[3] == 1):
+                                    image = self.data[i][j][0]
+                                    target = self.data[i][j][1]
+                                    img.append(image[patch[0]:patch[0]+self.patch_size[0], 
+                                                     patch[1]:patch[1]+self.patch_size[1], 
+                                                     patch[2]:patch[2]+self.patch_size[2]])
+                                    tar.append(target[patch[0]:patch[0]+self.patch_size[0], 
+                                                     patch[1]:patch[1]+self.patch_size[1], 
+                                                     patch[2]:patch[2]+self.patch_size[2]])
+                                    num -= 1
                                     if (num == 0):
                                         return np.expand_dims(img, axis=1), np.expand_dims(tar, axis=1)
 
