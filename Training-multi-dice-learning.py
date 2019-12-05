@@ -4,8 +4,7 @@ os.chdir("/scratch/yl4217/MS-Lesion-Segmentation/")
 
 config = {}
 config["weights_file"] = os.getcwd() + '/model/weight'
-# config["modality"] = ["FLAIR_preprocessed", "T1_preprocessed", "T2_preprocessed"]
-config["modality"] = ["FLAIR_preprocessed"]
+config["modality"] = ["FLAIR_preprocessed", "T1_preprocessed", "T2_preprocessed"]
 
 config["patch_size"] = (64, 64, 64)  # switch to None to train on the whole image
 config["patch_gap"] = 16
@@ -20,8 +19,8 @@ config["deconvolution"] = True  # if False, will use upsampling instead of decon
 
 config["patience"] = 10  # learning rate will be reduced after this many epochs if the validation loss is not improving
 config["early_stop"] = 10  # training will be stopped after this many epochs without the validation loss improving
-# config["initial_learning_rate"] = 0.000001
-config["initial_learning_rate"] = 0.00001
+config["initial_learning_rate"] = 0.0000001
+# config["initial_learning_rate"] = 0.00001
 config["learning_rate_drop"] = 0.5  # factor by which the learning rate will be reduced
 config["n_epochs"] = 10
 
@@ -38,7 +37,7 @@ train_generator = DataGenerator(d.moda, d.input, d.target, d.patch_index, d.kfol
 valid_generator = DataGenerator(d.moda, d.input, d.target, d.patch_index, d.kfold, d.batch_size,
                                 d.patch_size, d.patch_gap, d.valid_index, True)
 
-print("learning rate 0.00001; multi-modality training on selected patch; dice loss; FLAIR only")
+print("multi-modality training on selected patch; dice loss")
 
 def train(config, data, train_generator, valid_generator, train_num, valid_num):
 #     models = []
@@ -56,6 +55,8 @@ def train(config, data, train_generator, valid_generator, train_num, valid_num):
                               deconvolution=config["deconvolution"],
                               depth=config["depth"],
                               n_base_filters=config["n_base_filters"])
+        
+        model.load_weights(os.getcwd() + '/model/weight/fold0_dice_multi_weights-05-0.55.hdf5')
 
         callbacks = get_callbacks(config["weights_file"], str(i)+'_dice_multi_',
                                 initial_learning_rate=config["initial_learning_rate"],
