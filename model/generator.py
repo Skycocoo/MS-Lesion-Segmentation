@@ -17,7 +17,7 @@ class DataGenerator(keras.utils.Sequence):
         self.isTrain = is_train
         self.fold_index = None
         self.len = None
-        
+
     def set_index(self, index):
         self.fold_index = index
         
