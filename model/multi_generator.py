@@ -42,7 +42,10 @@ class DataGenerator(keras.utils.Sequence):
                             count += self.patch_index[i][j].shape[0]
                     else:
                         if self.isTrain:
-                            count += self.patch_index[i][j].shape[0]
+                            for k in range(self.patch_index[i][j].shape[0]):
+                                if self.patch_index[i][j][k][3] == 1:
+                                    count += 1
+                            # count += self.patch_index[i][j].shape[0]
                         else:
                             continue
             self.len = count // self.batch_size
@@ -55,6 +58,8 @@ class DataGenerator(keras.utils.Sequence):
         first_iter = True
         cur_image = []
         cur_target = []
+        
+        #################################### NEED TO FIX THIS ####################################
         
         for i in self.patch_index:
             if i == "count" or i == "patch_size" or i == "patch_gap":

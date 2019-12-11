@@ -1,3 +1,4 @@
+
 import glob, os, random
 import nibabel as nib
 import numpy as np
@@ -215,68 +216,48 @@ class Data:
                 self.pad_target_data(patch_size, pad_path, target_path)
         else:
             self.pad_target_data(patch_size, pad_path, target_path)
-            
     
-    def show_image(self, images):
-        # show image with [None, None, : ,: ,:] dimension
-        def show_frame(id):
-            length = len(images)
-            for i in range(length):
-                ax = plt.subplot(1, length, i+1)
-                if (i == 0):
-                    ax.set_title("Input")
-                if (i == 1):
-                    ax.set_title("Target")
-                if (i == 2):
-                    ax.set_title("Output")
-                plt.imshow(images[i][0, 0, id, :, :], cmap='gray')
-        interact(show_frame, 
-                 id=widgets.IntSlider(min=0, max=images[0].shape[2]-1, step=1, value=images[0].shape[2]/2))
-        
-        
-    def gen_patch_index(self, patch_size, patch_gap, index_path):
+    ################################################################################
+    
+    def gen_patch_index(self, patch_size, patch_gap, patch_path):
         count = 0
         patch_index = defaultdict(list)
-        # https://arxiv.org/pdf/1710.02316.pdf
-        # at least 0.01% voxels contain lesions
+        # https://arxiv.org/pdf/1710.02316.pdf  at least 0.01% voxels contain lesions
         voxel = int(patch_size[0]*patch_size[1]*patch_size[2]*0.0001)
         
-        for i in self.data:
+        # patches of segmentation
+        for i in self.target:
             if i == "patch_size":
                 continue
-            shape = self.data[i][0][0].shape
+            shape = self.target[i][0].shape
             patch_num = [int((shape[i]-patch_size[i]) / patch_gap) for i in range(len(shape))]
-
-            for j in range(self.data[i].shape[0]):
+            for j in range(self.target[i].shape[0]):
                 patch_ind = []
                 # assume this is a 3d image
                 for a in range(patch_num[0]):
                     for b in range(patch_num[1]):
                         for c in range(patch_num[2]):
                             patch_iter = [a * patch_gap, b * patch_gap, c * patch_gap, 1]
-                            if (np.sum(self.data[i][j][1][patch_iter[0]:patch_iter[0] + patch_size[0],
-                                                          patch_iter[1]:patch_iter[1] + patch_size[1],
-                                                          patch_iter[2]:patch_iter[2] + patch_size[2]]) <= voxel):
+                            if (np.sum(self.target[i][j][
+                                patch_iter[0]:patch_iter[0] + patch_size[0],
+                                patch_iter[1]:patch_iter[1] + patch_size[1],
+                                patch_iter[2]:patch_iter[2] + patch_size[2]]) <= voxel):
                                 # 0: does not satisfy, need to skip when generating
                                 patch_iter[3] = 0
                             patch_ind.append(patch_iter)
+                count += len(patch_ind)
                 patch_index[i].append(patch_ind)
-            
             for c in range(len(patch_index[i])):
-                # in-place shuffle
-                np.random.shuffle(patch_index[i][c])
-
-            # total number of patches for this shape
-            count += len(patch_ind) * self.data[i].shape[0]
+                np.random.shuffle(patch_index[i][c]) # in-place shuffule
         
-        with h5py.File(index_path, 'w') as f:
+        with h5py.File(patch_path + "pad_patch_index.h5", 'w') as f:
             f.create_dataset("count", data=count)
             f.create_dataset("patch_size", data=patch_size)
             f.create_dataset("patch_gap", data=patch_gap)
             for i in patch_index:
                 f.create_dataset(str(i), data=patch_index[i])
         
-        index_file = h5py.File(index_path, 'r')
+        index_file = h5py.File(patch_path + "pad_patch_index.h5", 'r')
         for i in index_file.keys():
             if i == "count" or i == "patch_size" or i == "patch_gap":
                 continue
@@ -284,9 +265,10 @@ class Data:
         # return the total number of patches
         return index_file["count"][()]
 
-    def load_patch_index(self, patch_size, patch_gap, index_path):
-        if os.path.isfile(index_path):
-            index_file = h5py.File(index_path, 'r')
+    
+    def load_patch_index(self, patch_size, patch_gap, patch_path):
+        if os.path.isfile(patch_path + "pad_patch_index.h5"):
+            index_file = h5py.File(patch_path + "pad_patch_index.h5", 'r')
             # print(list(pat_ind.keys()))
             if (np.all(index_file["patch_size"][:] == list(patch_size))) and (index_file["patch_gap"][()] == patch_gap):
                 for i in index_file.keys():
@@ -296,11 +278,11 @@ class Data:
                 return index_file["count"][()]
             else:
                 index_file.close()
-                return self.gen_patch_index(patch_size, patch_gap, index_path)
+                return self.gen_patch_index(patch_size, patch_gap, patch_path)
         else:
-            return self.gen_patch_index(patch_size, patch_gap, index_path)
+            return self.gen_patch_index(patch_size, patch_gap, patch_path)
             
-    def prekfold(self, patch_size, patch_gap, batch_size, kfold=5, index_path='./model/h5df_data/pat_ind.h5'):
+    def prekfold(self, patch_size, patch_gap, batch_size, kfold=5, patch_path='./model/h5df_data/'):
         self.kfold = kfold
         self.patch_size = patch_size
         self.patch_gap = patch_gap
@@ -313,9 +295,8 @@ class Data:
                 continue
             self.valid_index[i] = random.sample(range(self.kfold), self.kfold)
 
-        num = self.load_patch_index(patch_size, patch_gap, index_path)
+        num = self.load_patch_index(patch_size, patch_gap, patch_path)
         train_num = num // self.kfold * (self.kfold - 1)
         valid_num = num - train_num
         
         return train_num // batch_size, valid_num // batch_size
-                    
